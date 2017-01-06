@@ -1,0 +1,1289 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title>Standoff</title>
+	<style>
+	
+	</style>
+</head>
+<body>
+<script type="text/javascript" src="decks.js"></script> 
+
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/1.12.4/jquery.min.js">
+
+</script>
+<script src="https://cdn.socket.io/socket.io-1.4.5.js"></script>
+<script >
+
+//<![CDATA[
+
+//Card database
+var db = [];
+
+
+
+var display = [];
+
+var colors = ["#17dc2f", "yellow", "blue", "black"];
+var addOnText = ["", "A", "A"];
+
+
+
+//Open socket as client
+var socket = io();
+//socket.connect("127.0.0.1:3000");
+var c;
+var c2;
+var num;
+//Turn marker
+var turn;
+//Taxing
+var tax_turns = [];
+var amount = 0;
+//Debt
+var debt = 0;
+
+//Queue
+var queue = [null, null, null, null];
+var freeCard = null;
+
+//row, col, and range
+var r, co, range;
+
+function enableButtons(){
+	document.getElementById("drawBtn").disabled = false;
+	document.getElementById("playBtn").disabled = false;
+	document.getElementById("queueBtn").disabled = false;
+	document.getElementById("endTurnBtn").disabled = false;
+	document.getElementById("discardBtn").disabled = false;
+}
+
+function disableButtons(){
+	document.getElementById("drawBtn").disabled = true;
+	document.getElementById("playBtn").disabled = true;
+	document.getElementById("queueBtn").disabled = true;
+	document.getElementById("endTurnBtn").disabled = true;
+}
+
+//Begin a turn (this is the upkeep phase)
+socket.on("upkeep", function(){
+
+	//First budget halves (rounded down)
+	if (budget > 0){
+		budget = Math.floor(budget / 2);
+	}
+	//Then taxes happen
+	for (i = 0; i < tax_turns.length; i++){
+		if (tax_turns[i] > 0){
+			budget += amount;
+			tax_turns[i] = Math.max(0, tax_turns[i] - 1);
+		}
+	}
+	//Then debt is paid and all debt is cleared
+	budget -= 2 * debt;
+	debt = 0;
+	sendStatus();
+	showStatus();
+
+	playFreeCard();
+	
+	
+});
+
+socket.on("enable", function(){
+	//Reset turn indicator
+	turn = 1;
+	enableButtons();
+});
+
+//On getting signal from server to start, call all game functions
+socket.on("start", function(){
+	
+	initialize_vars();
+	
+	//Disable buttons if not on turn
+	if (turn == 0){
+		document.getElementById("drawBtn").disabled = true;
+		document.getElementById("playBtn").disabled = true;
+		document.getElementById("endTurnBtn").disabled = true;
+		document.getElementById("discardBtn").disabled = true;
+	}
+	
+	//Send public info to opponent
+	sendStatus();
+	showStatus(); 
+	drawHand();
+	drawField(); 
+	drawQueue();
+
+	drawDeck();
+	var canvas = document.getElementById("discard");
+	var ctx = canvas.getContext("2d");
+	ctx.fillStyle = "gray";
+	ctx.fillRect(0, 0, 150, 200);
+	ctx.font = "30px serif";
+  	ctx.strokeText("Discard pile is currently empty", 10, 50);
+	
+	//Initialize the event listeners
+	initialize_hand(); 
+	initialize_field();
+	initialize_deck();
+});
+
+//Get color depending on whether client is first or second player
+socket.on("color", function(data){c = data.c; c2 = data.c2, num = parseInt(data.num)});
+socket.on("deck", function(data){number = parseInt(data.number)});
+socket.on("turn", function(data){turn = parseInt(data.t)});
+
+var tempPacket;
+var tempColor;
+var tempIndex = -1;
+var tempCard; //Card in midst of resolution
+var tempObj; //Add-on in construction
+
+//Keep track of mouse position
+var cursorX;
+var cursorY;
+document.onmousemove = function(e){
+    cursorX = e.pageX;
+    cursorY = e.pageY;
+}
+
+var hand = [];
+var deck = [];
+var discard = [];
+var field = [];
+var addOns = [];
+var coord;
+
+var blockLength = 40;
+
+//Actions
+var actions = 4;
+var placements = 1;
+var budget = 0;
+
+//Flags
+var cardSelected = -1;
+var resolving = 0;
+
+//Improvements
+var improv = 0;
+
+function playFreeCard(){
+	//Play the available card on the queue
+	if (freeCard != null){
+		if (freeCard[1] == num){
+			if (confirm("Would you like to play the card on top of the queue?") == true){
+				//Resolve the card (for free)
+				freeCard[0].resolve(0);
+			} else {
+				discard.push(freeCard[0]);
+				drawDiscard();
+			}
+			freeCard = null;
+		} else {
+			//give the other player a chance to play their free card
+			socket.emit("playCard");
+		}
+	} else {
+		turn = 1;
+		enableButtons();
+	}
+}
+
+//Can mulligan as many times as possible at beginning of game
+function mulligan(){
+	var numCards = hand.length;
+	if (numCards > 0){
+		//Put hand back into deck and shuffle deck
+		while (hand.length > 0){
+			var card = hand.splice(0, 1)[0];
+			deck.push(card);
+		}
+		shuffle(1);
+		//Then draw 1 less card than before
+		draw(numCards - 1, 0);
+	}
+	drawHand();
+	drawDeck();
+	sendStatus();
+	showStatus();
+}
+
+//Initialize variables on connection to server
+function initialize_vars(){
+	//Array for field
+	for (i = 0; i < (length + 6) * (width + 6); i++) {
+	    field.push(num);
+	}
+	for (i = 0; i < length; i++) {
+		for (j = 0; j < width; j++) {
+	    	field[(i + 3) * (length + 6) + (j + 3)] = 0;
+		}
+	}
+	//Init add ons
+	for (i = 0; i < length * width; i++) {
+	    addOns.push(new Array());
+	}
+	//Obstacles at the start of the game
+	var pivot = length / 2 - 1;
+	for (i = 0; i < 4; i++){
+		//top 
+		field[6 * (length + 6) + pivot + 2 + i] = 3;
+		//left
+		field[(pivot + 2 + i) * (length + 6) + 6] = 3;
+		//bottom
+		field[13 * (length + 6) + pivot + 2 + i] = 3;
+		//right
+		field[(pivot + 2 + i) * (length + 6) + 13] = 3;
+	}
+	
+
+	//Deck
+	
+	deck = decks[number];
+
+	//Shuffle deck and draw 6 cards as the starting hand
+	shuffle(1);
+	//Draw 6 if first player, draw 7 if second player
+	draw(5 + num, 0);
+	
+}
+
+//Check to see if end of game is triggered, if so check to see who has won
+function checkEnd(){
+	var p1 = 0;
+	var p2 = 0;
+	var p1_total = 0;
+	var p2_total = 0;
+	var values = [0, 1, 0, 0];
+	var pivot = length / 2 - 1;
+	for (i = 0; i < length; i++){
+		for (j = 0; j < width; j++){			
+			//Add up tiles in the central shape
+			if (i >= pivot && i < pivot + 2 && j >= pivot - 1 && j < pivot + 3){
+				if (field[(i + 3)* (width + 6) + j + 3] == 0){
+					return -1;
+				}
+				p1 += values[field[(i + 3) * (width + 6) + j + 3]];
+				p2 += values[3 - field[(i + 3) * (width + 6) + j + 3]];
+			}
+			if (
+				(i == pivot - 1 && j == pivot) || (i == pivot - 1 && j == pivot + 1) ||
+				(i == pivot + 2 && j == pivot) || (i == pivot + 2 && j == pivot + 1)
+				){
+				if (field[(i + 3)* (width + 6) + j + 3] == 0){
+					return -1;
+				}
+				p1 += values[field[(i + 3) * (width + 6) + j + 3]];
+				p2 += values[3 - field[(i + 3) * (width + 6) + j + 3]];
+			}
+			//Add up all the tiles
+			p1_total += values[field[(i + 3) * (width + 6) + j + 3]];
+			p2_total += values[3 - field[(i + 3) * (width + 6) + j + 3]]; 
+		}
+	}
+	/*If tied in the central square, the one with the 
+	least tiles on the entire field wins; if still tied
+	the win goes to the second player */
+	return (((p2 > p1) ? 1 : 0) + 1) - ((p2 == p1 && p2_total < p1_total) ? 1 : 0);
+}
+
+function showStatus(){
+	var t = "";
+	for (i = 0; i < tax_turns.length; i++){
+		if (tax_turns[i] > 0){
+			t += "| " + tax_turns[i] + " ";
+		}
+	}
+
+	document.getElementById("display").innerHTML = 
+	"Actions left: " + actions + "<br>" + 
+	"Placements left: " + placements + "<br>" + 
+	"Budget: " + budget + "<br>" + 
+	"Tax turns left: " + t + "<br>" + 
+	"Debt to be paid next turn: " + (2 * debt);
+
+
+}
+
+//Measures taxicab distance between (a, b) and (c, d)
+function dist(a, b, c, d){
+	return Math.abs(a - c) + Math.abs(b - d);
+}
+
+function createPacket(shape, placement){
+	tempColor = c;
+	tempPacket = new Packet(shape, placement);
+	resolving = 1;
+	
+}
+
+function createShield(shape){
+	tempColor = "orange";
+	tempPacket = new Packet("1", 0);
+	improv = 3;
+	resolving = 1;
+}
+
+function artillery(){
+	tempColor = "orange";
+	tempPacket = new Packet("1", 0);
+	improv = num;
+	resolving = 1;
+}
+
+
+function obstruct(shape, placement){	
+	tempColor = "black";
+	tempPacket = new Packet(shape, placement);
+	resolving = 1;
+}
+
+function destroy(shape, row, col, ran){	
+	tempColor = "white";
+	tempPacket = new Packet(shape, 0);
+	r = row;
+	co = col;
+	range = ran;
+	resolving = 1;
+}
+
+//Reset variables for new turn
+function reset(){
+	//No mulligans allowed after play has begun
+	document.getElementById("mulliganBtn").disabled = true;
+	actions = 4;
+	placements = 1;	
+	sendStatus();
+	showStatus();
+	var canvas = document.getElementById("field_overlay");
+	var ctx = canvas.getContext("2d");
+	ctx.clearRect(0, 0, canvas.width, canvas.height);
+	//Disable buttons
+	turn = 2;
+	disableButtons();
+	//Move to discard phase
+	if (hand.length <= 7){
+		turn = 0;
+		//Shift the queue
+		shiftQueue(true);
+		socket.emit("upkeep");
+		//Disable the discard button
+		document.getElementById("discardBtn").disabled = true;
+	}
+}
+
+//Shifts the queue by one
+function shiftQueue(b){
+	var temp = [];
+
+	for (i = 0; i < queue.length; i++){
+		if (i + 1 < queue.length){
+			temp[i] = queue[i + 1];
+		} 
+	}
+
+	//set card
+	freeCard = queue[0];
+
+	queue = temp;
+	drawQueue();
+	drawCard();
+	//Only send info if b flag is true
+	if (b == true){
+		socket.emit("updateQueue");
+	}
+
+}
+
+//Shuffle deck: t = 1 shuffle deck, t = 0 shuffle discard
+function shuffle(t){
+	var temp = [];
+	var a = [];
+	if (t == 1){
+		while (deck.length > 0){
+			var card = Math.floor(Math.random() * deck.length);
+			temp.push(deck[card]);
+			deck.splice(card, 1);
+
+		}
+	} else {
+		while (discard.length > 0){
+			var card = Math.floor(Math.random() * discard.length);
+			temp.push(discard[card]);
+			discard.splice(card, 1);
+
+		}
+	}
+	
+	deck = temp.slice();
+}
+
+//Add actions
+function addActions(n){
+	actions += n;
+}
+
+//"Fast" gain, must pay 2 credits at the beginning of next turn (after decay happens first)
+function fastGain(n){
+	gain(n);
+	debt += 1;
+}
+
+//Gain "coins"
+function gain(n){
+	budget += n;
+}
+
+//Tax (for n turns)
+function tax(a, n){
+	amount = a;
+	tax_turns.push(n);
+}
+
+function wipeBoard(){
+	//Wipe field (except for tiles under deflector shield)
+	for (i = 0; i < length; i++) {
+		for (j = 0; j < width; j++) {
+			if (!addOns[i * length + j].includes(3)){
+	    		field[(i + 3) * (length + 6) + (j + 3)] = 0;
+	    		addOns[i * length + j] = new Array();
+	    	}
+		}
+	}
+	socket.emit("boardwipe");
+	drawField();
+}
+
+function selectedDiscard(){
+	if (turn != 0){
+		if (cardSelected != -1){
+			discardHand(cardSelected);
+			/*During the turn, discard gives you 1 credit
+			otherwise if the discard was during the discard
+			phase, then there is no benefit*/
+			budget += 1;
+			sendStatus();
+			showStatus();
+			if (turn == 2){
+				reset();
+			}
+			cardSelected = -1;
+		} else {
+			alert("Select a card first!");
+		}
+	}
+	var canvas = document.getElementById("hand_overlay");
+	var ctx = canvas.getContext("2d");
+	ctx.clearRect(0, 0, canvas.width, canvas.height);
+}
+
+//Discard a particular card from own hand 
+function discardHand(ind){	
+	var a = hand.splice(ind, 1);
+	discard.push(a[0]);
+	drawDiscard(a[0]);
+	drawHand();
+	sendStatus();
+	showStatus();
+}
+
+//Random discard target toward a player
+function randomDiscard(player){
+	if (player == 0){
+		var ind = Math.floor(hand.length * Math.random());
+		discardHand(ind);
+	} else {
+		socket.emit("randomDiscard");
+	}
+
+}
+
+
+//Draw cards
+function draw(n, p){	
+	if (turn == 1 || p == 0){
+		for (i = 0; i < n; i++){
+			if (deck.length == 0){	
+				//Shuffle discard pile into deck
+				if (discard.length > 0){
+					shuffle(0);
+					//Redraw discard
+					var canvas = document.getElementById("discard");
+					var ctx = canvas.getContext("2d");
+					ctx.fillStyle = "gray";
+					ctx.fillRect(0, 0, 150, 200);
+					ctx.font = "30px serif";
+				  	ctx.strokeText("Discard pile is currently empty", 10, 50);
+				} else {
+					alert("Your discard pile is empty so you cannot draw a card!");
+					actions += 1; //Give back the action expended
+				}
+				
+			}
+			hand.push(deck[deck.length - 1]);
+			deck.splice(-1, 1);
+			actions -= p;
+			var canvas = document.getElementById("hand_overlay");
+			var ctx = canvas.getContext("2d");
+			ctx.clearRect(0, 0, canvas.width, canvas.height);
+		}
+		drawHand();
+		drawDeck();
+	}
+	
+}
+
+function drawAction(){
+	//No mulligans allowed after play has begun
+	document.getElementById("mulliganBtn").disabled = true;
+	if (actions > 0){
+		draw(1, 1);
+		
+	} else {
+		alert("You are out of actions!");
+	}
+
+	sendStatus();
+	showStatus();
+}
+
+function addActions(n){
+	actions += n;
+}
+
+function initialize_deck(){
+	
+	var canvas = document.getElementById("deck_display");
+	canvas.addEventListener("mousedown", drawAction, false);
+	
+}
+
+//Initialize event listeners for th field canvas
+function initialize_field(){
+	var canvas = document.getElementById("field_overlay");
+	coord = canvas.getBoundingClientRect();
+	canvas.addEventListener("mousemove", function(event){drawShadow(cursorX - coord.left, cursorY - coord.top)}, false);
+	canvas.addEventListener("mousedown", fieldActions, false);
+	
+	window.addEventListener("keydown", function(event) {
+		if (event.keyCode == 88){
+			rotatePacket(event); drawShadow(cursorX - coord.left, cursorY - coord.top);
+		}
+	}, false);
+	
+}
+
+//Rotate selected packet (clockwise) and redraw
+function rotatePacket(event){
+	tempPacket.rotate();
+	
+}
+
+//Put selected packet onto the field
+function fieldActions(event){	
+	x = cursorX - coord.left;
+	y = cursorY - coord.top;
+	row = Math.floor(y / blockLength);
+	
+	col = Math.floor(x / blockLength);
+	//If we're using an action card
+	if (tempCard != null && resolving == 1){	
+		if (placements - tempPacket.placement >= 0){		
+			//Draw shape
+			
+			var colliding = tempPacket.collide(row + 3, col + 3);
+			var adjacent = tempPacket.adjacent(row + 3, col + 3);
+
+			//If not a destruction tile
+			if (!colliding && (adjacent || tempColor == "black")){
+				var n = num;
+				if (tempColor == "black"){
+					n = 3;
+				}
+				//Draw and place packet
+				tempPacket.place(row + 3, col + 3, n);
+				drawField();
+
+				//Send message to server containing coordinates and packet shape
+				socket.emit("placement", {xcoord: col, ycoord: row, sh: tempPacket.getShape(), color: tempColor});
+
+				//Remove card from hand
+				//hand.splice(cardSelected, 1);
+
+				//Redraw Hand
+				drawHand();
+				
+				placements -= tempPacket.getPlacement();
+				budget -= tempCard.cost;
+				actions -= tempCard.ac;
+				discard.push(tempCard);
+				resolving = 0;
+				tempCard = null;
+				
+			}		
+
+			//destruction tiles can be placed anywhere within range
+			if (tempColor == "white" && dist(r, co, row, col) <= range){
+				
+				//Can bomb any tile except those under a deflector shield
+				//Place packet with value 0 (essentially resetting the tile it was placed on)
+			
+				tempPacket.place(row + 3, col + 3, 0);
+				tempPacket.placeImp(row, col, 0);
+			    
+				//Erase tile
+				drawField();
+
+				//Send message to server containing coordinates and packet shape
+				socket.emit("placement", {xcoord: col, ycoord: row, sh: tempPacket.getShape(), color: "white"});
+				socket.emit("improvement", {xcoord: col, ycoord: row, sh: tempPacket.getShape(), n: "0"});
+				//Redraw Hand
+				drawHand();				
+
+				placements -= tempPacket.getPlacement();
+				budget -= tempCard.cost;
+				actions -= tempCard.ac;
+				discard.push(tempCard);
+				resolving = 0;
+				tempCard = null;
+				
+			}
+
+			//Each tile you control can only have one improvement of each type
+			//Artillery
+			if (tempColor == "orange" && !addOns[row * (length) + col].includes(improv)
+				&& tempPacket.collideWithOwn(row + 3, col + 3, num)){
+				//Add improvement
+				addOns[row * (length) + col].push(improv);
+				//If it's a deflector shield also modify the adjacen tiles
+				if (improv == 3){
+					addOns[Math.max(row - 1, 0) * (length) + col].push(improv);
+					addOns[Math.min(row + 1, 18) * (length) + col].push(improv);
+					addOns[row * (length) + Math.max(col - 1, 0)].push(improv);
+					addOns[row * (length) + Math.min(col + 1, 18)].push(improv);
+				}
+				drawField();
+				//Send message to server containing coordinates and packet shape
+				socket.emit("addon", {xcoord: col, ycoord: row, type: improv});
+
+				//Redraw Hand
+				drawHand();				
+
+				placements -= tempPacket.getPlacement();
+				budget -= tempCard.cost;
+				actions -= tempCard.ac;
+				discard.push(tempCard);
+				resolving = 0;
+				tempCard = null;
+			}
+
+			var canvas = document.getElementById("hand_overlay");
+			var ctx = canvas.getContext("2d");
+			ctx.clearRect(0, 0, canvas.width, canvas.height);
+			sendStatus();
+			showStatus();
+			
+
+			//Check if end of game is triggered
+			var end = checkEnd();
+			if (end != -1){
+				disableButtons();
+				alert("Player " + end + " has achieved victory!");
+			}		
+				
+		} else {
+			alert("You have used up all your placements for the turn!");
+			var canvas = document.getElementById("field_overlay");
+			var ctx = canvas.getContext("2d");
+			ctx.clearRect(0, 0, canvas.width, canvas.height);
+		}
+	} else {
+		//This is when using improvements already on the field
+		if (resolving == 1){
+			if (tempColor == "white" && dist(r, co, row, col) <= range){
+				
+				//Place packet with value 0 (essentially resetting the tile it was placed on)
+				//Artillery is "armor-piercing" so it goes through deflector shields
+				tempPacket.place(row + 3, col + 3, 0);
+				tempPacket.placeImp(row, col, 0);
+			    
+				//Erase tile
+				drawField();
+
+				//Send message to server containing coordinates and packet shape
+				socket.emit("placement", {xcoord: col, ycoord: row, sh: tempPacket.getShape(), color: "white"});	
+				socket.emit("improvement", {xcoord: col, ycoord: row, sh: tempPacket.getShape(), n: "0"});	
+
+
+				placements -= tempPacket.getPlacement();
+				budget -= 1;
+				actions -= 1;
+				resolving = 0;
+				tempPacket = null;
+			}
+		} else {
+			//Firing an artillery, gets through deflector shields
+			if (actions > 0 && budget > 0){
+				destroy("1", row, col, 4);
+			} else if (actions == 0){
+				alert("You do not have enough actions to fire an artillery!");
+			} else if (budget <= 0){
+				alert("You do not have enough credits to fire an artillery!");
+			}
+		}
+		tempCard = null;
+		
+		sendStatus();
+		showStatus();
+	}
+}
+//Draw a shadow of the packet onto the field
+function drawShadow(x, y){
+	var canvas = document.getElementById("field_overlay");
+	var ctx = canvas.getContext("2d");
+	ctx.clearRect(0, 0, canvas.width, canvas.height);
+	ctx.globalAlpha = 0.3;
+	if (tempPacket != null && tempColor != null){		
+		//Draw shape
+
+		row = Math.floor(y / blockLength);
+		col = Math.floor(x / blockLength);
+		var colliding = tempPacket.collide(row + 3, col + 3);
+		var adjacent = tempPacket.adjacent(row + 3, col + 3);
+		var color = tempColor;
+
+		//If shape is obstruction then only need to check collisions
+		if (color == "black" && colliding){
+			color = "red";
+		} else if (color != "black" && (colliding || !adjacent)){
+			//Otherwise it's a player's piece so also need to check adjacency
+			color = "red";
+		} 
+		//Bomb
+		if (tempColor == "white"){
+			//check range
+			if (dist(r, co, row, col) <= range){
+				color = "white";
+			} else {
+				color = "red";
+			}
+		}
+		//Add-on
+		if (tempColor == "orange"){
+			//Must collide with itself (Equiv to being on an own tile)
+			if (tempPacket.collideWithOwn(row + 3, col + 3, num)){
+				color = "orange";
+			} else {
+				color = "red";
+			}
+		}
+		if (resolving == 1){
+			tempPacket.drawShape(ctx, col * blockLength, row * blockLength, blockLength, color, 0.3);
+		}
+	} 
+	
+
+}
+
+//Draw packet onto the field: t = 1 means actually draw, t = 0 means erase
+function drawPacket(t){
+	var canvas = document.getElementById("field");
+	var ctx = canvas.getContext("2d");
+		
+	//Draw shape
+	x = cursorX - coord.left;
+	y = cursorY - coord.top;
+	row = Math.floor(y / blockLength);
+	col = Math.floor(x / blockLength);
+	if (t == 1){
+		tempPacket.drawShape(ctx, col * blockLength, row * blockLength,blockLength, tempColor, 1);
+	} else {
+		tempPacket.drawShape(ctx, col * blockLength, row * blockLength,blockLength, "#17dc2f", 1);
+	}
+	
+	
+}
+
+
+//Initialize event listeners for the hand canvas
+function initialize_hand(){
+	var canvas = document.getElementById("hand_overlay");
+	//Disable menu that pops up on right-click
+	canvas.oncontextmenu = function() {
+     	return false;  
+	} 
+	canvas.addEventListener("mousemove", showCard, false);
+	//Left click to select/play card, right click to discard card
+	canvas.addEventListener("mousedown", 
+		function(event){
+			if (event.button == 0){
+				
+				selectCard(event);
+				
+			} else if (event.button == 2){
+				
+				selectCard(event);
+				selectedDiscard();
+				
+				
+			}
+		}
+	, false);
+}
+
+//Display the card the mouse is hovering over
+function showCard(event){
+	var canvas = document.getElementById("card_display");
+	var ctx = canvas.getContext("2d");
+	ctx.clearRect(0, 0, canvas.width, canvas.height);
+	x = event.pageX;
+	y = event.pageY;
+	var w = Math.min((900 / hand.length), 150);
+	index = Math.floor(x / w);
+	if (index < hand.length){
+		hand[index].drawImg(ctx, 0, 0, 300, 400);
+	}
+}
+
+//On mouse click select a card
+function selectCard(event){
+	var canvas = document.getElementById("hand_overlay");
+	var ctx = canvas.getContext("2d");
+	ctx.clearRect(0, 0, canvas.width, canvas.height);
+	x = event.pageX;
+	y = event.pageY;
+	var w = Math.min((900 / hand.length), 150);
+	index = Math.floor(x / w);
+	//Double click
+	if (index == cardSelected){
+		if (turn == 1){
+			if (resolving == 0){
+				execute();
+			} else {
+				alert("Please finish resolving your current card!");
+			}
+		}
+		
+	} else {
+		if (index < hand.length){
+			cardSelected = index;
+			
+			ctx.strokeStyle = "rgb(100, 255, 100)";
+			ctx.lineWidth = 5;
+			ctx.beginPath();
+			ctx.moveTo((index + 1) * w, 0);
+			ctx.lineTo(index * w, 0);
+			ctx.closePath();
+			ctx.stroke();
+
+			ctx.beginPath();
+			ctx.moveTo(index * w, 0);
+			ctx.lineTo(index * w, 200);
+			ctx.closePath();
+			ctx.stroke();
+
+			ctx.beginPath();
+			ctx.moveTo(index * w, 200);
+			ctx.lineTo((index + 1) * w, 200);
+			ctx.closePath();
+			ctx.stroke();
+			//Set temp card
+			tempCard = hand[index];
+
+			
+		}	
+	}
+}
+
+//Add card to queue
+function add(){
+	//No mulligans allowed after play has begun
+	document.getElementById("mulliganBtn").disabled = true;
+	if (cardSelected > -1){
+		//Clear tempPacket first
+		tempPacket = null;
+
+		var slot = prompt("Enter the slot in which you want to add your card (minimum 2)", "");
+		if (slot != null){
+			var slotnum = parseInt(slot);
+			var obj = hand.splice(cardSelected, 1)[0];
+			if (queue[slotnum - 1] == null && slotnum >=2){
+				//Discounted cost of the card
+				var price = Math.max(obj.cost - slotnum, 0);
+				if (actions > 0 && budget - price >= 0){
+					//Insert into queue
+					queue[slotnum - 1] = [obj, num];
+
+					//Reset current card
+					cardSelected = -1;
+
+					actions -=1;
+					budget -= price;
+					var canvas = document.getElementById("hand_overlay");
+					var ctx = canvas.getContext("2d");
+					ctx.clearRect(0, 0, canvas.width, canvas.height);
+					drawQueue();
+					drawHand();
+					sendStatus();
+					showStatus();
+
+					socket.emit("queue", {card: obj.ind, player: num, slot: slotnum - 1});
+				} else if (actions <= 0){
+					alert("You do not have enough actions to add a card into the queue!")
+				} else if (budget - price < 0){
+					alert("You do not have enough budget to add this card into slot number " + slotnum + "!");
+				}
+			} else if (queue[slotnum - 1] != null){
+				alert("That slot has already been filled!");
+			} else if (slot < 2){
+				alert("You can only add cards to slots 2 and up!")
+			}
+		}
+
+		//Remove card from hand
+		
+		//Redraw Hand
+		drawHand();
+		drawDiscard(obj);
+		
+		 
+	}
+}
+
+//Execute effect of card
+function execute(){
+	//No mulligans allowed after play has begun
+	document.getElementById("mulliganBtn").disabled = true;
+	if (cardSelected > -1){
+		//Clear tempPacket first
+		tempPacket = null;
+
+		obj = hand[cardSelected];
+		obj.resolve(1);
+		//Remove card from hand
+		
+		//Redraw Hand
+		drawHand();
+		drawDiscard(obj);
+		
+		 
+	}
+	//Reset current card
+	cardSelected = -1;
+	var canvas = document.getElementById("hand_overlay");
+	var ctx = canvas.getContext("2d");
+	ctx.clearRect(0, 0, canvas.width, canvas.height);
+	sendStatus();
+	showStatus();
+}
+
+//Draw the free card
+function drawCard(){
+	var canvas = document.getElementById("free_card");
+	var ctx = canvas.getContext("2d");
+	ctx.clearRect(0, 0, canvas.width, canvas.height);
+	if (freeCard != null){
+		freeCard[0].drawImg(ctx, 0, 0, 0, 0);
+	} 
+}
+
+//Draw queue
+function drawQueue(){
+	var canvas = document.getElementById("queue_display");
+	var ctx = canvas.getContext("2d");
+	ctx.clearRect(0, 0, canvas.width, canvas.height);
+	ctx.fillStyle = "black";
+	for (i = 0; i < 8; i++){
+		ctx.beginPath();
+		ctx.moveTo(i * 120,0);
+		ctx.lineTo(i * 120,160);
+		ctx.lineWidth = 1;
+		ctx.stroke();
+		ctx.font = "48px serif";
+  		ctx.strokeText(i + 1, i*120 + 50, 80);
+  		ctx.closePath();
+
+	}
+	//Red line to indicate turn 2
+	ctx.fillStyle = "red";
+	ctx.beginPath();
+	ctx.moveTo(120,0);
+	ctx.lineTo(120,160);
+	ctx.lineWidth = 5;
+	ctx.stroke();
+	ctx.closePath();
+
+	//Draw the cards on the queue
+	for (index = 0; index < queue.length; index++){
+		var posX = 120 * index;
+		if (queue[index] != null){
+			queue[index][0].drawImg(ctx, posX, 0, 120, 160);
+		}
+
+	    
+	}
+
+}
+
+//Draw discard pile
+function drawDiscard(obj){
+	var canvas = document.getElementById("discard");
+	var ctx = canvas.getContext("2d");
+	obj.drawImg(ctx, 0, 0, 150, 200);
+}
+
+//Draw deck (has a number on it indicating number of cards left)
+function drawDeck(){
+	var canvas = document.getElementById("deck_display");
+	var ctx = canvas.getContext("2d");
+	ctx.fillStyle = "brown";
+	ctx.fillRect(0, 0, 150, 200);
+	ctx.font = "48px serif";
+  	ctx.strokeText(deck.length, 10, 50);
+}
+
+//Draw field
+
+function drawField(){
+	var c = document.getElementById("field");
+	var ctx = c.getContext("2d");
+	ctx.clearRect(0, 0, c.width, c.height);
+	for (i = 3; i < 22; i++){
+		for (j = 3; j < 22; j++){
+			//Draw each tile
+			var tile = field[i * (length + 6) + j];
+			ctx.fillStyle = colors[tile];
+			ctx.fillRect((j - 3)* blockLength, (i - 3)* blockLength, blockLength, blockLength);
+		}
+	}
+
+	//Draw central square (superweapon)
+	var pivot = (length / 2 - 1);
+	ctx.beginPath();
+		ctx.moveTo(pivot * blockLength, 
+			pivot * blockLength);
+		ctx.lineTo(pivot * blockLength, (pivot - 1) * blockLength);
+		ctx.lineTo((pivot + 2) * blockLength, (pivot - 1) * blockLength);
+		ctx.lineTo((pivot + 2) * blockLength, pivot * blockLength);
+		ctx.lineTo((pivot + 3) * blockLength, pivot * blockLength);
+		ctx.lineTo((pivot + 3) * blockLength, (pivot + 2) * blockLength);
+		ctx.lineTo((pivot + 2) * blockLength, (pivot + 2) * blockLength);
+		ctx.lineTo((pivot + 2) * blockLength, (pivot + 3) * blockLength);
+		ctx.lineTo((pivot) * blockLength, (pivot + 3) * blockLength);
+		ctx.lineTo((pivot) * blockLength, (pivot + 2) * blockLength);
+		ctx.lineTo((pivot - 1) * blockLength, (pivot + 2) * blockLength);
+		ctx.lineTo((pivot - 1) * blockLength, (pivot) * blockLength);
+		ctx.lineTo((pivot) * blockLength, (pivot) * blockLength);
+		ctx.lineWidth = 5;
+		ctx.strokeStyle = 'black';
+		ctx.stroke();
+	
+	//Draw grid
+	for (i = 0; i < length; i++){
+		ctx.beginPath();
+		ctx.moveTo(i * blockLength,0);
+		ctx.lineTo(i * blockLength,800);
+		ctx.lineWidth = 1;
+		ctx.stroke();
+		ctx.moveTo(0,i * blockLength);
+		ctx.lineTo(800,i * blockLength);
+		ctx.strokeStyle = 'black';
+		ctx.stroke();
+
+	}
+
+	//Draw addons
+	for (i = 0; i < length; i++){
+		for (j = 0; j < length; j++){
+			//Draw each tile
+			var tile = addOns[i * length + j];
+			if (tile.includes(1)|| tile.includes(2)){
+				var centerX = j * blockLength + 0.5 * blockLength;
+				var centerY = i * blockLength + 0.5 * blockLength;
+		        var radius = blockLength / 3;
+
+		        ctx.beginPath();
+		        ctx.arc(centerX, centerY, radius, 0, 2 * Math.PI, false);
+		        ctx.fillStyle = 'gray';
+		        ctx.fill();
+		        ctx.lineWidth = 2;
+		        ctx.strokeStyle = '#003300';
+		        ctx.stroke();
+ 			} 
+ 			if (tile.includes(3)){
+ 				//Draw deflector shield
+ 				ctx.beginPath();
+				ctx.moveTo(j * blockLength, i * blockLength);
+				ctx.lineTo(j * blockLength, (i + 1) * blockLength);
+				ctx.lineTo((j + 1) * blockLength, (i + 1) * blockLength);
+				ctx.lineTo((j + 1) * blockLength, i * blockLength);
+				ctx.lineTo(j * blockLength, i * blockLength);
+				ctx.lineWidth = 5;
+				ctx.strokeStyle = 'white';
+				ctx.stroke();
+ 			}
+		}
+	}
+	
+}
+
+function drawHand(){
+	var canvas = document.getElementById("hand");
+	var ctx = canvas.getContext("2d");
+	ctx.clearRect(0, 0, canvas.width, canvas.height);
+	for (index = 0; index < hand.length; index++){
+		var posX = Math.min((900 / hand.length) * index, 150 * index);
+		
+		hand[index].drawImg(ctx, posX, 0, 150, 200);
+	    
+	}
+}
+
+//Send public info to opponent
+function sendStatus(){
+	socket.emit("status", {actions: actions, placements: placements, budget: budget, handsize: hand.length});
+}
+
+//Update opponent's status
+socket.on("status", function(data){
+	document.getElementById("opp").innerHTML = 
+	"Opponent's actions: " + data.actions + "<br>" + 
+	"Opponent's placements: " + data.placements + "<br>" + 
+	"Opponent's Budget: " + data.budget + "<br>" +
+	"Opponent's hand size: " + data.handsize;
+});
+
+socket.on("improvement", function(data){
+	var packet = new Packet("'" + data.sh + "'", 0);
+	packet.placeImp(data.ycoord, data.xcoord, parseInt(data.n));
+	drawField();
+});
+
+socket.on("addon", function(data){
+	addOns[data.ycoord * (length) + data.xcoord].push(data.type);
+	//Deflector shield
+	if (data.type == 3){
+		var row = data.ycoord;
+		var col = data.xcoord;
+		addOns[Math.max(row - 1, 0) * (length) + col].push(data.type);
+		addOns[Math.min(row + 1, 18) * (length) + col].push(data.type);
+		addOns[row * (length) + Math.max(col - 1, 0)].push(data.type);
+		addOns[row * (length) + Math.min(col + 1, 18)].push(data.type);
+	}
+	drawField();
+});
+
+socket.on("boardwipe", function(data){
+	wipeBoard();
+});
+
+socket.on("queue", function(data){
+	queue[data.slot] = [cards[data.card], data.player];
+	drawQueue();
+});
+socket.on("updateQueue", function(data){
+	shiftQueue(false);
+});
+
+//Playing free card on opp's turn
+socket.on("playCard", function(data){
+	playFreeCard();
+	//start opp's turn
+	socket.emit("enable");
+});
+
+//Functions upon receiving messages from server
+socket.on("placement", function(data){
+	var canvas = document.getElementById("field");
+	var ctx = canvas.getContext("2d");
+	
+	var packet = new Packet("'" + data.sh + "'", 0);
+
+	//Modify entries in field
+	var n = 3 - num;
+	if (data.color == "black"){
+		n = 3;
+	} else if (data.color == "white"){
+		n = 0;
+		addOns[data.ycoord * length + data.xcoord] = new Array();
+	}
+	packet.place(data.ycoord + 3, data.xcoord + 3, n);
+	//Reset improvements on the tile
+	
+	drawField();
+});
+
+//Discard a card upon receiving 
+socket.on("randomDiscard", function(){
+	randomDiscard(0);
+});
+
+//]]>
+
+</script>
+
+
+<div style="position: absolute; left: 1200px; top: 450px">
+<p id="display"></p>
+
+</div>
+
+<div style="position: absolute; left: 1200px; top: 550px">
+<p id="opp"></p>
+
+</div>
+
+<div style="position: relative;">
+ <canvas id="field" width="560" height="560" 
+   style="position: absolute; left: 0px; top: 0px; z-index: 0; border:1px solid #000000;"></canvas>
+ <canvas id="field_overlay" width="560" height="560" 
+   style="position: absolute; left: 0px; top: 0px; z-index: 1;"></canvas>
+</div>
+
+<canvas id="free_card" height="160" width="120" 
+   style="position: absolute; left: 20px; top: 600px; z-index: 0; border:1px solid #000000;"></canvas>
+
+<canvas id="queue_display" height="160" width="960" 
+   style="position: absolute; left: 200px; top: 600px; z-index: 0; border:1px solid #000000;"></canvas>
+<canvas id="queue_display_2" height="160" width="960" 
+   style="position: absolute; left: 200px; top: 600px; z-index: 1; border:1px solid #000000;"></canvas>
+
+<canvas id="card_display" width="300" height="400" 
+   style="position: absolute; left: 1000px; top: 50px; z-index: 0; border:1px solid #000000;"></canvas>
+<canvas id="card_display_2" width="300" height="400" 
+   style="position: absolute; left: 1000px; top: 50px; z-index: 1; border:1px solid #000000;"></canvas>
+<br>
+
+<div style="position: relative;">
+ <button id="drawBtn" class="button" type="button" onclick="drawAction()" style="position: absolute; left: 600px; top: 450px;">Draw</button>
+
+ <button id="endTurnBtn" class="button"  type="button" onclick="reset()" style="position: absolute; left: 700px; top: 450px;">End Turn</button>
+  <button id="discardBtn" class="button"  type="button" onclick="selectedDiscard()" style="position: absolute; left: 600px; top: 500px;">Discard</button>
+ <button id="mulliganBtn" class="button"  type="button" onclick="mulligan()" style="position: absolute; left: 700px; top: 500px;">Mulligan</button>
+
+  <button id="playBtn" class="button"  type="button" onclick="execute()" style="position: absolute; left: 950px; top: 800px;">Play Card</button>
+ <button id="queueBtn" class="button"  type="button" onclick="add()" style="position: absolute; left: 950px; top: 850px;">Add Card to Queue</button>
+
+
+ <canvas id="deck_display" width="150" height="200" 
+   style="position: absolute; left: 1150px; top: 760px; z-index: 1;"></canvas> 
+   <canvas id="discard" width="150" height="200" 
+   style="position: absolute; left: 1350px; top: 760px; z-index: 1;"></canvas> 
+</div>
+
+<div style="position: relative; top: 760px;">
+ <canvas id="hand" width="900" height="200" 
+   style="position: absolute; left: 0px; top: 0px; z-index: 0; border:1px solid #000000;"></canvas>
+ <canvas id="hand_overlay" width="900" height="200" 
+   style="position: absolute; left: 0px; top: 0px; z-index: 1;"></canvas>
+
+</div>
+
+
+
+
+</body>
+</html>
