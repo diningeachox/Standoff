@@ -65,7 +65,7 @@ app.post("/", function (req, res) {
 
 
 console.log("Server started!");
-const PORT = process.env.PORT || 2000;
+const PORT = process.env.PORT || 8080;
 serv.listen(PORT);
 
 
