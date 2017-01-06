@@ -63,9 +63,10 @@ app.post("/", function (req, res) {
 
 
 
-console.log("Server started!");
 
-serv.listen(2000);
+console.log("Server started!");
+const PORT = process.env.PORT || 2000;
+serv.listen(PORT);
 
 
 //Store multiple clients
