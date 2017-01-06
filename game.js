@@ -56,7 +56,7 @@ app.post("/", function (req, res) {
 	})
 	*/
 	res.writeHead(301,
-	  {Location: 'http://localhost:2000/app.html'}
+	  {Location: 'http://localhost:2000/constructed.html'}
 	);
 	res.end();
 });
