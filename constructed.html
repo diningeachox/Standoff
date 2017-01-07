@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-	<title>Standoff</title>
+	<title>Standoff Constructed</title>
 	<style>
 	
 	</style>
@@ -68,10 +68,7 @@ function disableButtons(){
 //Begin a turn (this is the upkeep phase)
 socket.on("upkeep", function(){
 
-	//First budget halves (rounded down)
-	if (budget > 0){
-		budget = Math.floor(budget / 2);
-	}
+	
 	//Then taxes happen
 	for (i = 0; i < tax_turns.length; i++){
 		if (tax_turns[i] > 0){

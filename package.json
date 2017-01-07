@@ -1,15 +1,16 @@
 {
-    "name": "standoff",
-    "version": "1.0.0",
-    "description": "Standoff the card game",
-    "main": "game.js",
-    "scripts": {
-	"start":"node game.js",
-	"deploy": "gcloud app deploy"
-    },
-    "dependencies": {
-	"express": "latest",
-        "socket.io": "latest"
-    },
-    "author": "Jack Ding"
+  "name": "standoff",
+  "version": "1.0.0",
+  "description": "Standoff the card game",
+  "main": "game.js",
+  "scripts": {
+    "start": "node game.js",
+    "deploy": "gcloud app deploy"
+  },
+  "dependencies": {
+    "body-parser": "^1.15.2",
+    "express": "latest",
+    "socket.io": "latest"
+  },
+  "author": "Jack Ding"
 }

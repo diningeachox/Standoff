@@ -112,10 +112,8 @@ Goal is to get to the center as fast as possible
 using the combo 4-stick & airdrop whenever possible.
 A couple of bombings in there to blow up obstructions.
 
-10 3-credits;
-5 4-sticks;
- 4 airdrops;
- 2 bombings;
+7 5f-credits, 4 3-credits;
+3 Z's, 3 S's, 4 3-sticks;
 Total - 21 cards (very consistent!)
    */
 aggro = [cards[16], cards[16], cards[16], cards[16], 

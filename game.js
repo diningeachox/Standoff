@@ -50,13 +50,8 @@ app.post("/", function (req, res) {
     	deck2 = null;
     }
     //Redirect to game page
-    /*
-	app.get('*',function(req,res){  
-	    res.redirect("http://localhost:2000/app.html")
-	})
-	*/
 	res.writeHead(301,
-	  {Location: 'constructed.html'}
+	  {Location: 'http://localhost:8080/constructed.html'}
 	);
 	res.end();
 });
