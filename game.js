@@ -18,7 +18,7 @@ var market = [];
 
 var exec = require("child_process").exec;
 app.get('/', function(req, res){
-	res.sendFile(__dirname + "/constructed.html");
+	res.sendFile(__dirname + "/main.html");
 	//exec("php index.php", function (error, stdout, stderr) {res.send(stdout);});
 });
 app.use("/", express.static(__dirname));
