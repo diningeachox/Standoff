@@ -14,11 +14,11 @@ var p1 = null;
 var p2 = null;
 var deck1 = null;
 var deck2 = null;
+var market = [];
 
-//To get node.js to execute php scripts
 var exec = require("child_process").exec;
 app.get('/', function(req, res){
-	res.sendFile(__dirname + "/index.html");
+	res.sendFile(__dirname + "/constructed.html");
 	//exec("php index.php", function (error, stdout, stderr) {res.send(stdout);});
 });
 app.use("/", express.static(__dirname));
@@ -37,6 +37,8 @@ app.use(bodyParser.urlencoded({
 /**bodyParser.json(options)
  * Parses the text as JSON and exposes the resulting object on req.body.
  */
+
+ /*
 app.use(bodyParser.json());
 
 app.post("/", function (req, res) {
@@ -55,8 +57,22 @@ app.post("/", function (req, res) {
 	);
 	res.end();
 });
+*/
 
+//Shuffle an array
+function shuffle(arr){
+	var temp = [];
+	var a = [];
+	while (arr.length > 0){
+		var card = Math.floor(Math.random() * arr.length);
+		temp.push(arr[card]);
+		arr.splice(card, 1);
 
+	}
+	
+	
+	return temp.slice();
+}
 
 
 console.log("Server started!");
@@ -76,6 +92,16 @@ io.on("connection", function(socket){
 
 	console.log(socket.id + "has connected");
 
+	//Cards that are randomized for each draft
+	var cardlist = [10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 31, 32];
+	//create market
+	for (i = 0; i < cardlist.length; i++){
+		for (j = 0; j < 8; j++){
+			market.push(cardlist[i]);
+		}
+	}
+	market = shuffle(market);
+
 	//Pair automatically when a second client connects
 	if (!pendingPair){
 		pendingPair = socket;
@@ -91,12 +117,17 @@ io.on("connection", function(socket){
 		pendingPair = null;
 		console.log("Pairing successful!")
 		//p2.emit("start");
+
+		//Tell p1 to randomize the draft market
+		p1.emit("market", market);
+		p2.emit("market", market);
+
 		p1.emit("deck", {number: deck1});
 		p2.emit("deck", {number: deck2});
 		
+		p2.emit("turn", {t : "0"});
 		p2.emit("start");
 		p1.emit("start");
-		p2.emit("turn", {t : "0"});
 		
 
 	}
@@ -174,6 +205,34 @@ io.on("connection", function(socket){
 			});
 		});
 
+		//Communicate addons between clients
+		p1.on("addForcefield", function(data){
+			//Send location of placement to p2
+			p2.emit("addForcefield", {
+				xcoord: data.xcoord, ycoord: data.ycoord, player: data.player
+			});
+		});
+		p2.on("addForcefield", function(data){
+			//Send location of placement to p1
+			p1.emit("addForcefield", {
+				xcoord: data.xcoord, ycoord: data.ycoord, player: data.player
+			});
+		});
+
+		//Communicate addons between clients
+		p1.on("clearForcefield", function(data){
+			//Send location of placement to p2
+			p2.emit("clearForcefield", {
+				xcoord: data.xcoord, ycoord: data.ycoord, player: data.player
+			});
+		});
+		p2.on("clearForcefield", function(data){
+			//Send location of placement to p1
+			p1.emit("clearForcefield", {
+				xcoord: data.xcoord, ycoord: data.ycoord, player: data.player
+			});
+		});
+
 		//Discard
 		p1.on("randomDiscard", function(){
 			//Send location of placement to p2
@@ -184,6 +243,26 @@ io.on("connection", function(socket){
 			p1.emit("randomDiscard");
 		});
 
+		//Targetted discard
+		p1.on("targetDiscard", function(data){
+			//Send location of placement to p2
+			p2.emit("targetDiscard", {ind: data.ind});
+		});
+		p2.on("targetDiscard", function(data){
+			//Send location of placement to p2
+			p1.emit("targetDiscard", {ind: data.ind});
+		});
+
+		//Hand info
+		p1.on("hand", function(data){
+			//Send location of placement to p2
+			p2.emit("hand", data);
+		});
+		p2.on("hand", function(data){
+			//Send location of placement to p2
+			p1.emit("hand", data);
+		});
+
 		//Start upkeep
 		p1.on("upkeep", function(){
 			p2.emit("upkeep");
@@ -192,49 +271,54 @@ io.on("connection", function(socket){
 			p1.emit("upkeep");
 		});
 
-		//Enable buttons
-		p1.on("enable", function(){
-			p2.emit("enable");
+		//Add a trojan horse card
+		p1.on("trojan", function(){
+			p2.emit("trojan");
 		});
-		p2.on("enable", function(){
-			p1.emit("enable");
-		});
-
-		//Boardwipe
-		p1.on("boardwipe", function(){
-			p2.emit("boardwipe");
-		});
-		p2.on("boardwipe", function(){
-			p1.emit("boardwipe");
+		p2.on("trojan", function(){
+			p1.emit("trojan");
 		});
 
-		//Boardwipe
-		p1.on("playCard", function(){
-			p2.emit("playCard");
+		//Keep track of trojan horse gifts
+		p1.on("horse", function(){
+			p2.emit("horse");
 		});
-		p2.on("playCard", function(){
-			p1.emit("playCard");
+		p2.on("horse", function(){
+			p1.emit("horse");
 		});
-
-
-		//Queue info
-		p1.on("queue", function(data){
-			p2.emit("queue", 
-				{card: data.card, player: data.player, slot: data.slot});
+		
+		//Write transcript
+		p1.on("event", function(data){
+			p2.emit("event", data);
 		});
-		p2.on("queue", function(data){
-			p1.emit("queue", 
-				{card: data.card, player: data.player, slot: data.slot});
+		p2.on("event", function(data){
+			p1.emit("event", data);
 		});
 
-		//updatequeue
-		//Boardwipe
-		p1.on("updateQueue", function(){
-			p2.emit("updateQueue");
+		//Update market
+		p1.on("market", function(data){
+			p2.emit("market", data);
 		});
-		p2.on("updateQueue", function(){
-			p1.emit("updateQueue");
+		p2.on("market", function(data){
+			p1.emit("market", data);
 		});
+		
+		//Update discard piles
+		p1.on("discard", function(data){
+			p2.emit("discard", data);
+		});
+		p2.on("discard", function(){
+			p1.emit("discard", data);
+		});
+
+		//Update  quantity piles
+		p1.on("quantity", function(data){
+			p2.emit("quantity", data);
+		});
+		p2.on("quantity", function(){
+			p1.emit("quantity", data);
+		});
+
 	}
 
 /*

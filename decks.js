@@ -1,6 +1,8 @@
 //Game parameters
-var length = 14;
-var width = 14;
+var length = 16;
+var width = 16;
+
+var lastAction = null; 
 
 //Image array
 var images = [];
@@ -12,10 +14,15 @@ var arr = ["images/1.png", "images/2.png", "images/3.png", "images/4.png",
 "images/1c.png", "images/2c.png", "images/3c.png", 
 "images/3f.png", "images/4f.png", "images/5f.png",
 "images/restock.png", "images/blitz.png", "images/hack.png", "images/obstruction.png", 
-"images/mirv.png", "images/tax.png", "images/drop.png", "images/artillery.png",
-"images/deflector.png", "images/armageddon.png",
+"images/airstrike.png", "images/fundraiser.png", "images/airdrop.png", "images/artillery.png",
+"images/forcefield.png", "images/duplicate.png",
 "images/L.png", "images/T.png", "images/gamma.png", "images/square.png",
-"images/S.png", "images/Z.png", "images/I.png"
+"images/S.png", "images/Z.png", "images/I.png",
+"images/1p.png", "images/2p.png", "images/3p.png", "images/4p.png", 
+"images/initiative.png", "images/trojan.png", "images/horse.png", "images/emp.png",
+"images/early_access.png", "images/refinery.png",
+"images/steve.png", "images/linda.png", "images/bart.png", "images/zelda.png", 
+"images/mineral.gif", "images/ruby.png"
 ];
 
 
@@ -49,163 +56,112 @@ var loader = ImageLoader(arr, function() {
         console.log("Image " + (i + 1) + " is loaded!");
     }
 });
+//Action cards which put improvements on tiles
+var imps = [17, 18];
+var aggro, midrange, combo, dup, hacker;
 
+//Cards that are in every draft
+var staples = [27, 28, 29, 30, 4, 5, 6, 36];
+var quantity = [18, 18, 18, 18, 30, 24, 16, 16];
+//Cards that are randomized for each draft
+var cardlist = [10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 31, 32];
+//Price of buying
+var costs = [1, 2, 3, 4, 0, 2, 5, 0, 2, 5, 3, 4, 3, 3, 3, 3, 3, 4, 3, 4, 5, 4, 2];
 
-
-var aggro, midrange, combo, control, a_aggro;
 //Card list
 var cards = [
-	new Card(0, ["createPacket('1', 1)"], "", 0, 0),
-	new Card(1, ["createPacket('1010', 1)"], "", 0, 2),
-	new Card(2, ["createPacket('100100100', 1)"], "", 0, 4),
-	new Card(3, ["createPacket('1101', 1)"], "", 0, 4),
-	new Card(4, ["gain(1)"], "Add 1 credits to budget.", 0, 0),
-	new Card(5, ["gain(2)"], "Add 2 credits to budget.", 0, 0),
-	new Card(6, ["gain(3)"], "Add 3 credits to budget.", 0, 0),
-	new Card(7, ["fastGain(3)"], "Add 3 credits to budget, pay 2 credits at the beginning of your next turn.", 0, 0),
-	new Card(8, ["fastGain(4)"], "Add 4 credits to budget, pay 2 credits at the beginning of your next turn.", 0, 0),
-	new Card(9, ["fastGain(5)"], "Add 5 credits to budget, pay 2 credits at the beginning of your next turn.", 0, 0),
-	new Card(10, ["draw(3, 0)"], "Draw 3 Cards.", 1, 3),
-	new Card(11, ["addActions(2)"], "Gain 2 actions.", 1, 3),
-	new Card(12, ["randomDiscard(1)"], "Opponent randomly discards a card.", 1, 2),	
-	new Card(13, ["obstruct('1', 0)"], "places a 1x1 black polyomino onto the field", 1, 2),
-	new Card(14, ["destroy('1', 9, 9, 200)"], "", 1, 3),
-	new Card(15, ["tax(2, 5)"], "+2 credit for next five turns", 1, 2),
-	new Card(16, ["createPacket('1', 0)"], "", 1, 2),
-	new Card(17, ["artillery()"], "", 1, 4),
-	new Card(18, ["createShield()"], "creates a deflector shield", 1, 4),
-	new Card(19, ["wipeBoard()"], "destroys all tiles and improvements on the field", 1, 12),
-	new Card(20, ["createPacket('100100110', 1)"], "", 0, 6),
-	new Card(21, ["createPacket('111010000', 1)"], "", 0, 6),
-	new Card(22, ["createPacket('111100100', 1)"], "", 0, 6),
-	new Card(23, ["createPacket('1111', 1)"], "", 0, 6),
-	new Card(24, ["createPacket('100110010', 1)"], "", 0, 5),
-	new Card(25, ["createPacket('010110100', 1)"], "", 0, 5),
-	new Card(26, ["createPacket('1000100010001000', 1)"], "", 0, 8)
+	new Card(0, ["createPacket('1', 1)"], "", 0, new Vector(0, 0), new Vector(0, 0)),
+	new Card(1, ["createPacket('1010', 1)"], "", 0, new Vector(0, 0), new Vector(0, 0)),
+	new Card(2, ["createPacket('100100100', 1)"], "", 0, new Vector(0, 0), new Vector(0, 0)),
+	new Card(3, ["createPacket('1101', 1)"], "", 0, new Vector(0, 0), new Vector(0, 0)),
+	new Card(4, ["gain(1)"], "1C", 0, new Vector(0, 0), new Vector(0, 0)),
+	new Card(5, ["gain(2)"], "2C", 0, new Vector(0, 0), new Vector(2, 0)),
+	new Card(6, ["gain(3)"], "3C", 0, new Vector(0, 0), new Vector(5, 0)),
+	new Card(7, ["fastGain(3)"], "3 Fast C", 0, new Vector(0, 0), new Vector(0, 0)),
+	new Card(8, ["fastGain(4)"], "4 Fast C", 0, new Vector(0, 0), new Vector(2, 0)),
+	new Card(9, ["fastGain(5)"], "5 Fast C", 0, new Vector(0, 0), new Vector(5, 0)),
+	new Card(10, ["draw(3, 0)"], "Restock", 1, new Vector(2, 0), new Vector(3, 0)),
+	new Card(11, ["addActions(3)"], "Blitz", 1, new Vector(3, 0), new Vector(4, 0)),
+	new Card(12, ["targetDiscard(1)"], "Hack", 1, new Vector(2, 0), new Vector(3, 0)),	
+	new Card(13, ["obstruct('1', 0)"], "Obstruction", 1, new Vector(2, 0), new Vector(3, 0)),
+	new Card(14, ["destroy('1', 9, 9, 200)"], "Airstrike", 1, new Vector(3, 1), new Vector(3, 2)),
+	new Card(15, ["fundraiser()"], "Fundraiser", 1, new Vector(0, 0), new Vector(3, 0)),
+	new Card(16, ["createPacket('1', 0)"], "Airdrop", 1, new Vector(2, 0), new Vector(03, 0)),
+	new Card(17, ["artillery()"], "Artillery", 1, new Vector(4, 1), new Vector(4, 2)),
+	new Card(18, ["force()"], "Forcefield", 1, new Vector(2, 0), new Vector(3, 1)),
+	new Card(19, ["duplicate()"], "Duplicate", 1, new Vector(4, 1), new Vector(4, 1)),
+	new Card(20, ["createPacket('100100110', 1)"], "", 0, new Vector(0, 0), new Vector(0, 0)),
+	new Card(21, ["createPacket('111010000', 1)"], "", 0, new Vector(0, 0), new Vector(0, 0)),
+	new Card(22, ["createPacket('110100100', 1)"], "", 0, new Vector(0, 0), new Vector(0, 0)),
+	new Card(23, ["createPacket('1111', 1)"], "", 0, new Vector(0, 0), new Vector(0, 0)),
+	new Card(24, ["createPacket('100110010', 1)"], "", 0, new Vector(0, 0), new Vector(0, 0)),
+	new Card(25, ["createPacket('010110100', 1)"], "", 0, new Vector(0, 0), new Vector(0, 0)),
+	new Card(26, ["createPacket('1000100010001000', 1)"], "", 0, new Vector(0, 0), new Vector(0, 0)),
+	new Card(27, ["createPacket('1', 1)"], "1P", 1, new Vector(0, 0), new Vector(1, 0)),
+	new Card(28, ["createPacket('1010', 1)"], "2P", 1, new Vector(2, 0), new Vector(2, 0)),
+	new Card(29, ["playPoly(2)"], "3P", 1, new Vector(3, 0), new Vector(3, 1)),
+	new Card(30, ["playPoly(3)"], "4P", 1, new Vector(4, 1), new Vector(4, 2)),
+	new Card(31, ["extraTurn()"], "Initiative", 1, new Vector(9, 0), new Vector(5, 0)),
+	new Card(32, ["trojan()"], "Trojan", 1, new Vector(1, 0), new Vector(4, 0)),
+	new Card(33, [""], "Horse", 0, new Vector(0, 0), new Vector(0, 0)),
+	new Card(34, ["emp()"], "EMP", 1, new Vector(2, 0), new Vector(2, 2)),
+	new Card(35, ["tutor()"], "Early Access", 1, new Vector(1, 0), new Vector(3, 1)),
+	new Card(36, ["refinery()"], "Refinery", 1, new Vector(2, 0), new Vector(2, 0))
+];
+
+// 7 1C's and 3 1P's
+var starter = [cards[4], cards[4], cards[4], cards[4], cards[4], cards[4], cards[27],
+				cards[27], cards[27], cards[27]];
+
+
+var poly = [[cards[0]],
+	[cards[1]],
+	[cards[2], cards[3]],
+	[cards[20], cards[21], cards[22], cards[23], cards[24], cards[25], cards[26]]
 ];
 
 
-/* MIRV deck: (8 sticks)
-Focused on bombing the opponent.
-Then tries to get to the center as fast as possible 
-with deflector protection.
-4 I's, 2 T;
-2 deflectors;
-5 bomb;
-1 restocks;
-9 3-credits;
-Total - 23 cards
-*/
 
-mirv = [
-		cards[3], cards[3], cards[3], cards[3], cards[21], cards[21],
-		cards[18], cards[18],
-		cards[14], cards[14], cards[14], cards[14], cards[14],
-		cards[10], 
-		cards[6], cards[6], cards[6], cards[6], cards[6], 
-		cards[6], cards[6], cards[6], cards[6]
-		
-		];
-
-/* Aggro deck: (4-stick & Airdrop)
-Goal is to get to the center as fast as possible 
-using the combo 4-stick & airdrop whenever possible.
-A couple of bombings in there to blow up obstructions.
-
-7 5f-credits, 4 3-credits;
-3 Z's, 3 S's, 4 3-sticks;
-Total - 21 cards (very consistent!)
-   */
-aggro = [cards[16], cards[16], cards[16], cards[16], 
-		cards[14], cards[14], 
-		cards[3], cards[3], cards[3], cards[3], cards[3],
-		cards[6], cards[6], cards[6], cards[6], cards[6], cards[6],
-		cards[6], cards[6], cards[6], cards[6]
-		];
-
-/* Artillery aggro: 
-Goal is to get to the center as fast as possible 
-using the combo 4-stick & airdrop whenever possible.
-Once close to the center, set up an artillery 
-to wipe out opponent's tiles, then claim the center.
-
-10 3-credits;
-4 4-sticks;
- 4 airdrops;
- 3 artillery;
-Total - 21 cards (very consistent!)
-   */
-a_aggro = [cards[16], cards[16], cards[16], cards[16], 
-		cards[17], cards[17], cards[17],
-		cards[3], cards[3], cards[3], cards[3], 
-		cards[6], cards[6], cards[6], cards[6], cards[6], cards[6],
-		cards[6], cards[6], cards[6], cards[6]
-		];
-
-/* Midrange deck: (Artillery Midrange)
-Focuses on approaching the center and then
-setting up artilleries to make sure opponent
-never encroaches.
-A few obstructions to buy time to set up artillery
-A couple deflectors for protection
-
-8 3-credits, 2 5f-credits;
-3 artillery; (main gameplan)
-5 4-sticks; (to get to the center quickly)
-2 tax; (generating credits for artillery and good resource sink)
-2 obstructions; (as some control)
-2 deflectors; (for protection)
-Total - 22 cards
-*/
-midrange = [cards[6], cards[6], cards[6], cards[6],
-			cards[6], cards[6], cards[6], cards[6],
-			cards[9], cards[9],
-			cards[3], cards[3], cards[3],  
-			cards[3], cards[3], 
-			cards[15], cards[15],  
-			cards[13], cards[13], 
-			cards[17], cards[17], cards[17],
-			cards[18], cards[18]
-		];
-
-/* Combo-control deck: (Tax Storm)
-Focused on getting a punch of taxes to ramp up economy.
-Many bombs and obstructions to stall opponent.
-1 boardwipe if necessary
-Uses expedience and resupply to generated enough actions 
-to play enough airdrops in the same turn to OTK.
-
-7 3-credits, 2 2-credits, 2 4f-credits; (fast money to play taxes quickly)
-1 armageddon; (last resort)
-4 tax; (engine)
-3 restock, 3 blitz; (engine)
-2 airdrops; (win-con)
-Total - 24 cards
-*/
-
-combo = [cards[8], cards[8], 
-			cards[6], cards[6], cards[6], cards[6],
-			cards[6], cards[6], cards[6],
-			cards[5], cards[5], 
-			cards[19],
-			cards[10], cards[10], cards[10],
-			cards[11], cards[11], cards[11],
-			cards[15], cards[15], cards[15], cards[15],
-			cards[16], cards[16]
-			];
-
-var decks = [mirv, aggro, a_aggro, midrange];
+var decks = [dup, aggro, hacker, midrange, combo];
 
 //Classes for cards and packets
 
-//Non polyomino card
-function Card(index, arr, t, ac, cost){
+//Satellite card
+function Sat(index, arr, name, ac, cost, price){
 	this.effect = arr.slice(0);
-	this.t = t;
+	this.name = name;
+	this.ac = ac; //Number of actions costed
+	this.cost = cost; //Cost to play
+	this.img = images[index];
+	this.ind = index;
+	this.price = price; //Price to buy from market
+}
+
+Sat.prototype.getIndex = function(){
+	return this.ind;
+}
+
+Sat.prototype.drawImg = function(ctx, x, y, w, h){
+	var image = this.img;
+	if (image.complete){
+		ctx.drawImage(image, x, y, w, h);
+	} else {
+		image.onLoad = function () {
+			ctx.drawImage(image, x, y, w, h);
+		}
+	}
+	
+}
+
+//Non polyomino card
+function Card(index, arr, name, ac, cost, price){
+	this.effect = arr.slice(0);
+	this.name = name;
 	this.ac = ac;
 	this.cost = cost;
 	this.img = images[index];
 	this.ind = index;
+	this.price = price; //Price to buy from market
 }
 
 Card.prototype.getIndex = function(){
@@ -213,8 +169,14 @@ Card.prototype.getIndex = function(){
 }
 
 Card.prototype.drawImg = function(ctx, x, y, w, h){
-
-	ctx.drawImage(this.img, x, y, w, h);
+	var image = this.img;
+	if (image.complete){
+		ctx.drawImage(image, x, y, w, h);
+	} else {
+		image.onLoad = function () {
+			ctx.drawImage(image, x, y, w, h);
+		}
+	}
 	
 }
 
@@ -224,15 +186,24 @@ Card.prototype.resolve = function(p){
 			except resource cards (which take 0 actions)*/
 		if (actions - this.ac < 0 && this.ac != 0){
 			alert("You do not have enough actions to play this card!");
+			return 0;
 		}
-		if (budget - this.cost < 0 && this.cost != 0){
+		if (!budget.subtract(this.cost).affordable() && this.cost != 0){
 			/*Can't play a card if you don't have enough budget 
 			except resource cards (which have 0 cost)*/
 			alert("You do not have enough budget to play this card!");
+			return 0;
 		}
 	}
+	if (p == 2){ //Card is played off of Duplicate
+		if (actions - this.ac < 0 && this.ac != 0){
+			alert("You do not have enough actions to play this card!");
+			return 0;
+		}
+
+	}
 	if (((actions - this.ac >= 0 || this.ac == 0) &&
-	 (budget - this.cost >= 0 || this.cost == 0)) ||
+	 (budget.subtract(this.cost).affordable() || this.cost.equals(new Vector(0, 0)))) ||
 		p == 0){
 		for (i = 0; i < this.effect.length; i++){
 			s = this.effect[i];
@@ -247,25 +218,20 @@ Card.prototype.resolve = function(p){
 					args[i] = parseInt(args[i]);
 				}
 			}
-
 			//Execute the function
 			(window[func]).apply(this, args);
 
-			var card = hand.splice(cardSelected, 1)[0];
-
-			//When card is finished resolving
-			if (resolving == 0){
-				actions -= this.ac;
-				budget -= this.cost;
-				//discard the resolved card
-				
-				discard.push(card);
-			} else {
-				tempCard = card;
-			}
-
-			
 		}
+		if (resolving == 0){
+			actions -= this.ac;
+			if (p == 1){
+				budget = budget.subtract(this.cost);
+			}
+			if (this.ac > 0){
+				lastAction = s;
+			}
+		}
+		return 1;
 	} 
 }
 
@@ -306,10 +272,8 @@ Packet.prototype.place = function(row, col, n){
 		if (parseInt(this.shape.charAt(k)) > 0){
 			var x = col + j;
 			var y = row + i;
-			//Only place if it's not a bomb and the tile is not under protection
-			if (!(n == 0 && addOns[(y - 3) * width + (x - 3)].includes(3))){
-				field[y * (width + 6) + x] = n * parseInt(this.shape.charAt(k));
-			}
+			field[y * (width + 6) + x] = n * parseInt(this.shape.charAt(k));
+			
 		}
     }
 };
@@ -324,12 +288,9 @@ Packet.prototype.placeImp = function(row, col, n){
 			var x = Math.min(col + j, width);
 			var y = Math.min(row + i, length);
 			if (n != 0){
-				addOns[y * width + x].push(n * parseInt(this.shape.charAt(k)));
+				addOns[y * width + x] = n * parseInt(this.shape.charAt(k));
 			} else {
-				if (!addOns[y * width + x].includes(3)){
-					addOns[y * width + x] = new Array();
-				}
-
+				addOns[y * width + x] = 0;
 			}
 		}
     }
@@ -350,7 +311,7 @@ Packet.prototype.rotate = function(){
 };
 
 //Checks if current position places the packet on top of another one
-Packet.prototype.collide = function(row, col){
+Packet.prototype.collide = function(row, col, num){
 
 	var dim = Math.sqrt(this.shape.length);
 	for (k = 0; k < dim * dim; k++) {
@@ -360,19 +321,25 @@ Packet.prototype.collide = function(row, col){
 		if (field[(row + i) * (width + 6) + (col + j)] != 0 && parseInt(this.shape.charAt(k)) != 0){
 			return true;
 		}
+		//If packet collides with a forcefield of opposing colour
+		if ((effects[(row + i) * (width + 6) + (col + j)]).includes(num) && parseInt(this.shape.charAt(k)) != 0){
+			return true;
+		}
+		
 
     }
     return false;
 };
 
 //Checks if current position places the packet on top of another one of the same color
-Packet.prototype.collideWithOwn = function(row, col, n){
+Packet.prototype.collideWith = function(row, col, n){
 	var dim = Math.sqrt(this.shape.length);
 	for (k = 0; k < dim * dim; k++) {
 		var i = Math.floor(k / dim);
 		var j = k % dim;
 		//If packet is out of field or intersecting with another packet of the same colour
-		if (field[(row + i) * (width + 6) + (col + j)] == n * parseInt(this.shape.charAt(k)) && parseInt(this.shape.charAt(k)) > 0){
+		if (field[(row + i) * (length + 6) + (col + j)] == n * parseInt(this.shape.charAt(k)) && parseInt(this.shape.charAt(k)) > 0){
+			
 			return true;
 		}
 
@@ -381,11 +348,11 @@ Packet.prototype.collideWithOwn = function(row, col, n){
 };
 
 //Checks if current position of the packet is adjacent to edge or another packet
-Packet.prototype.adjacent = function(row, col){
-	return this.collideWithOwn(row - 1, col, num) || 
-	this.collideWithOwn(row + 1, col, num) || 
-	this.collideWithOwn(row, col - 1, num) || 
-	this.collideWithOwn(row, col + 1, num);
+Packet.prototype.adjacent = function(row, col, num){
+	return this.collideWith(row - 1, col, num) || 
+	this.collideWith(row + 1, col, num) || 
+	this.collideWith(row, col - 1, num) || 
+	this.collideWith(row, col + 1, num);
 };
 
 Packet.prototype.drawShape = function(ctx, x, y, size, color, alpha){
@@ -405,3 +372,32 @@ Packet.prototype.drawShape = function(ctx, x, y, size, color, alpha){
 		}
 	}	
 };
+
+function Vector(a, b){
+	this.credits = a;
+	this.minerals = b;
+}
+
+Vector.prototype.add = function(v){
+	return new Vector(this.credits + v.credits, this.minerals + v.minerals);
+}
+
+Vector.prototype.subtract = function(v){
+	return new Vector(this.credits - v.credits, this.minerals - v.minerals);
+}
+
+Vector.prototype.project = function(t){
+	if (t == 0){
+		return new Vector(this.credits, 0);
+	} 
+	return new Vector(0, this.minerals);
+	
+}
+
+Vector.prototype.equals= function(v){
+	return this.credits == v.credits && this.minerals == v.minerals;
+}
+
+Vector.prototype.affordable = function(){
+	return this.credits >= 0 && this.minerals >= 0;
+}

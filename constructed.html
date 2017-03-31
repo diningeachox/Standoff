@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-	<title>Standoff Constructed</title>
+	<title>Standoff</title>
 	<style>
 	
 	</style>
@@ -13,6 +13,12 @@
 
 </script>
 <script src="https://cdn.socket.io/socket.io-1.4.5.js"></script>
+
+<link rel=StyleSheet type="text/css" href="style.css">
+<link rel="stylesheet" href="//code.jquery.com/ui/1.12.1/themes/base/jquery-ui.css">
+  <script src="https://code.jquery.com/jquery-1.12.4.js"></script>
+  <script src="https://code.jquery.com/ui/1.12.1/jquery-ui.js"></script>
+
 <script >
 
 //<![CDATA[
@@ -20,11 +26,11 @@
 //Card database
 var db = [];
 
-
+var polyEnabled = 0;
 
 var display = [];
 
-var colors = ["#17dc2f", "yellow", "blue", "black"];
+var colors = ["#17dc2f", "yellow", "blue", "black", "#FF69B4"];
 var addOnText = ["", "A", "A"];
 
 
@@ -42,76 +48,64 @@ var tax_turns = [];
 var amount = 0;
 //Debt
 var debt = 0;
+//Trojan Horses giving free resources
+var horses = 0;
+//Extra turn
+var extra = 0;
+//Player's budget
 
-//Queue
-var queue = [null, null, null, null];
-var freeCard = null;
+
 
 //row, col, and range
 var r, co, range;
 
 function enableButtons(){
-	document.getElementById("drawBtn").disabled = false;
-	document.getElementById("playBtn").disabled = false;
-	document.getElementById("queueBtn").disabled = false;
+	document.getElementById("gainBtn").disabled = false;
 	document.getElementById("endTurnBtn").disabled = false;
 	document.getElementById("discardBtn").disabled = false;
+	document.getElementById("mineBtn").disabled = false;
 }
 
 function disableButtons(){
-	document.getElementById("drawBtn").disabled = true;
-	document.getElementById("playBtn").disabled = true;
-	document.getElementById("queueBtn").disabled = true;
+	document.getElementById("gainBtn").disabled = true;
 	document.getElementById("endTurnBtn").disabled = true;
+	document.getElementById("discardBtn").disabled = true;
+	document.getElementById("mineBtn").disabled = true;
 }
 
 //Begin a turn (this is the upkeep phase)
 socket.on("upkeep", function(){
 
-	
-	//Then taxes happen
-	for (i = 0; i < tax_turns.length; i++){
-		if (tax_turns[i] > 0){
-			budget += amount;
-			tax_turns[i] = Math.max(0, tax_turns[i] - 1);
-		}
-	}
 	//Then debt is paid and all debt is cleared
-	budget -= 2 * debt;
+	
+	budget = budget.subtract(new Vector(2 * debt, 0));
 	debt = 0;
 	sendStatus();
 	showStatus();
 
-	playFreeCard();
-	
-	
-});
-
-socket.on("enable", function(){
-	//Reset turn indicator
+	//No extra turns
+	extra = 0;
 	turn = 1;
 	enableButtons();
+	
 });
 
+
 //On getting signal from server to start, call all game functions
-socket.on("start", function(){
-	
-	initialize_vars();
-	
+socket.on("start", function(){	
+	initialize_vars();	
+
 	//Disable buttons if not on turn
 	if (turn == 0){
-		document.getElementById("drawBtn").disabled = true;
-		document.getElementById("playBtn").disabled = true;
-		document.getElementById("endTurnBtn").disabled = true;
-		document.getElementById("discardBtn").disabled = true;
+		disableButtons();
 	}
+	document.getElementById("undoBtn").disabled = true; //Undo btn is disabled at start
 	
 	//Send public info to opponent
 	sendStatus();
 	showStatus(); 
 	drawHand();
 	drawField(); 
-	drawQueue();
 
 	drawDeck();
 	var canvas = document.getElementById("discard");
@@ -119,12 +113,29 @@ socket.on("start", function(){
 	ctx.fillStyle = "gray";
 	ctx.fillRect(0, 0, 150, 200);
 	ctx.font = "30px serif";
-  	ctx.strokeText("Discard pile is currently empty", 10, 50);
+  	ctx.strokeText("Discard", 10, 50);
+  	ctx.strokeText("pile", 10, 100);
+
+  	//Draw opp discard
+  	canvas = document.getElementById("opp_discard");
+	ctx = canvas.getContext("2d");
+  	ctx.fillStyle = "gray";
+	ctx.fillRect(0, 0, 150, 200);
+	ctx.font = "30px serif";
+  	ctx.strokeText("Opponent's", 10, 50);
+  	ctx.strokeText("discard", 10, 100);
+
 	
 	//Initialize the event listeners
 	initialize_hand(); 
 	initialize_field();
 	initialize_deck();
+
+	//Get market info from p1
+	if (turn == 0){
+		socket.emit("reqmarket");
+	}
+	initialize_market();
 });
 
 //Get color depending on whether client is first or second player
@@ -132,10 +143,11 @@ socket.on("color", function(data){c = data.c; c2 = data.c2, num = parseInt(data.
 socket.on("deck", function(data){number = parseInt(data.number)});
 socket.on("turn", function(data){turn = parseInt(data.t)});
 
-var tempPacket;
+var tempPacket; //packet in midst of resolution
 var tempColor;
 var tempIndex = -1;
 var tempCard; //Card in midst of resolution
+
 var tempObj; //Add-on in construction
 
 //Keep track of mouse position
@@ -146,83 +158,280 @@ document.onmousemove = function(e){
     cursorY = e.pageY;
 }
 
+var cardWidth = 150;
+var cardHeight = 200;
+
+var market = [];
 var hand = [];
 var deck = [];
 var discard = [];
+var opp_discard = [];
 var field = [];
 var addOns = [];
+var effects = [];
 var coord;
+
+var oppHand = [];
 
 var blockLength = 40;
 
 //Actions
 var actions = 4;
 var placements = 1;
-var budget = 0;
+var budget = new Vector(0, 0);
 
 //Flags
-var cardSelected = -1;
+//selected[0] is the card selected in hand, selected[1] is the card selected in poly 
+var selected = [-1, -1];
 var resolving = 0;
+//Next action is free
+var free = 0;
+var adj = 0;
+var adjOpp = 0;
+var isPoly = 0;
 
 //Improvements
 var improv = 0;
 
-function playFreeCard(){
-	//Play the available card on the queue
-	if (freeCard != null){
-		if (freeCard[1] == num){
-			if (confirm("Would you like to play the card on top of the queue?") == true){
-				//Resolve the card (for free)
-				freeCard[0].resolve(0);
-			} else {
-				discard.push(freeCard[0]);
-				drawDiscard();
+
+//Checks if the field contains a player's tiles
+function contains(arr, num){
+	for (i = 0; i < length; i++) {
+		for (j = 0; j < width; j++) {
+			if (field[(i + 3) * (length + 6) + (j + 3)] == num){
+				return true;
 			}
-			freeCard = null;
-		} else {
-			//give the other player a chance to play their free card
-			socket.emit("playCard");
+	    	
 		}
-	} else {
-		turn = 1;
-		enableButtons();
 	}
+	return false;
 }
 
-//Can mulligan as many times as possible at beginning of game
-function mulligan(){
-	var numCards = hand.length;
-	if (numCards > 0){
-		//Put hand back into deck and shuffle deck
-		while (hand.length > 0){
-			var card = hand.splice(0, 1)[0];
-			deck.push(card);
-		}
-		shuffle(1);
-		//Then draw 1 less card than before
-		draw(numCards - 1, 0);
+function displayCard(obj){
+	var canvas = document.getElementById("card_display");
+	var ctx = canvas.getContext("2d");
+	ctx.clearRect(0, 0, canvas.width, canvas.height);
+	
+		
+	obj.drawImg(ctx, 0, 0, 300, 400);
+	
+}
+
+function Selection(event, overlay){
+	this.overlay = overlay;
+	this.event = event;
+	this.cardWidth = 150;
+	this.cardHeight = 200;
+	this.selected = -1;
+
+}
+
+Selection.prototype.index = function(){
+	var rect = this.overlay.getBoundingClientRect();
+	var ctx = this.overlay.getContext("2d");
+
+	//Get relative position of cursor
+	var x = event.pageX - rect.left;
+	var y = event.pageY - rect.top;
+	var col = Math.floor(x / cardWidth);	
+	var row = Math.floor(y / cardHeight);
+
+	var num = row * 4 + col;
+	return num;
+}
+
+Selection.prototype.draw = function(t, length){
+	var rect = this.overlay.getBoundingClientRect();
+	var ctx = this.overlay.getContext("2d");
+
+	ctx.clearRect(0, 0, this.overlay.width, this.overlay.height);
+	//Get relative position of cursor
+	var x = event.pageX + (window.pageXOffset || document.body.scrollLeft) - rect.left;
+	var y = event.pageY + document.body.scrollTop - rect.top;
+	var col = Math.floor(x / cardWidth);	
+	var row = Math.floor(y / cardHeight);
+
+	var num;
+	if (t == 2){
+	    num = row * 4 + col;
+	} else {
+		num = col;
 	}
-	drawHand();
-	drawDeck();
-	sendStatus();
-	showStatus();
+	if (num < length){
+		//If no card is yet selected, select that
+		if (this.selected == -1){
+			this.selected = num;
+			
+			ctx.strokeStyle = "rgb(100, 255, 100)";
+			ctx.lineWidth = 5;
+			ctx.beginPath();
+			ctx.moveTo((col + 1) * this.cardWidth, row * this.cardHeight);
+			ctx.lineTo(col * this.cardWidth, row * this.cardHeight);
+			ctx.lineTo(col * this.cardWidth, row * this.cardHeight + 200);
+			ctx.lineTo((col + 1) * this.cardWidth, row * this.cardHeight + 200);
+			ctx.lineTo((col + 1) * this.cardWidth, row * this.cardHeight);
+			ctx.closePath();
+			ctx.stroke();
+		} else {
+			if (num == this.selected){
+				this.selected = -1;
+				return num;
+			} else {
+				this.selected = num;
+				ctx.strokeStyle = "rgb(100, 255, 100)";
+				ctx.lineWidth = 5;
+				ctx.beginPath();
+				ctx.moveTo((col + 1) * this.cardWidth, row * this.cardHeight);
+				ctx.lineTo(col * this.cardWidth, row * this.cardHeight);
+				ctx.lineTo(col * this.cardWidth, row * this.cardHeight + 200);
+				ctx.lineTo((col + 1) * this.cardWidth, row * this.cardHeight + 200);
+				ctx.lineTo((col + 1) * this.cardWidth, row * this.cardHeight);
+				ctx.closePath();
+				ctx.stroke();
+			}
+		}
+		
+	}	
+	return -1;
+}
+
+function initialize_market(){
+	var overlay = document.getElementById("random_overlay");
+	var overlay2 = document.getElementById("staples_overlay");
+	var sel = new Selection(event, overlay);
+	var sel2 = new Selection(event, overlay2);
+
+	overlay.addEventListener("mousedown", 
+		function(event){
+			if (turn == 1){
+				//Do selection
+				
+				var number = sel.draw(2, Math.min(8, market.length));
+				if (number != -1 && number < market.length){
+					//If player has enough resources
+					var card = cards[market[number]];
+					var cost = card.price;
+					if (budget.subtract(cost).affordable() && actions > 0){
+						updateDiscard(cards[(market.splice(number, 1)[0])]);
+						drawMarket();
+						socket.emit("market", market);
+						drawDiscard(discard[discard.length - 1]);
+						actions -= 1;
+						budget = budget.subtract(cost);
+						showStatus();
+						sendStatus();
+						var text ="<strong> Player " + num + "</strong> buys <strong>" + card.name + "<strong>. <br>";
+						updateScroll(text);
+					} else if (!budget.subtract(cost.project(0)).affordable()) {
+						alert("You do not have enough credits to buy this card!");
+					} else if (!budget.subtract(cost.project(1)).affordable()) {
+						alert("You do not have enough minerals to buy this card!");
+					} else if (actions == 0){
+						alert("You do not have enough actions to buy this card!");
+					}
+				}
+			}
+		}, 
+	false);
+
+	overlay.addEventListener("mousemove", 
+		function(event){
+			//Draw card
+			
+			var num = sel.index();
+			displayCard(cards[market[num]]);
+		}, 
+	false);
+	
+	overlay2.addEventListener("mousedown", 
+		function(event){
+			if (turn == 1){
+				//Draw selection
+				var number = sel2.draw(2, 8);
+
+				if (number != -1 && quantity[number] > 0){
+					var card = cards[staples[number]];
+					var cost = card.price;
+					if (budget.subtract(cost).affordable() && actions > 0){
+						updateDiscard(cards[staples[number]]);	
+						quantity[number] -= 1; //Subtract 1 from the staple pile
+						drawMarket();
+						socket.emit("market", market);
+						socket.emit("quantity", number);
+						drawDiscard(discard[discard.length - 1]);
+						budget = budget.subtract(cost);
+						actions -= 1;
+						showStatus();
+						sendStatus();
+						var text ="<strong> Player " + num + "</strong> buys <strong>" + card.name + "<strong>. <br>";
+						updateScroll(text);
+					} else if (!budget.subtract(cost.project(0)).affordable()) {
+						alert("You do not have enough credits to buy this card!");
+					} else if (!budget.subtract(cost.project(1)).affordable()) {
+						alert("You do not have enough minerals to buy this card!");
+					} else if (actions == 0){
+						alert("You do not have enough actions to buy this card!");
+					}
+				}
+			}
+		}, 
+	false);
+
+	overlay2.addEventListener("mousemove", 
+		function(event){
+			//Draw card
+			
+			var num = sel2.index();
+			displayCard(cards[staples[num]]);
+		}, 
+	false);
+	//Update market and discard piles
+	drawMarket();
+
+	
 }
 
 //Initialize variables on connection to server
 function initialize_vars(){
+	//Locations of mineral patches
+	var patches = [[1, 1], [0, 2], [2, 0],
+					[length - 2, length - 2], [length - 1, length - 3], [length - 3, length - 1],
+					[length - 2, 1], [length - 1, 2], [length - 3, 0],
+					[1, length - 2], [0, length - 3], [2, length - 1]];
+
+
 	//Array for field
+
+	//Fill the edges
 	for (i = 0; i < (length + 6) * (width + 6); i++) {
 	    field.push(num);
+	    effects.push(new Array());
 	}
+
+	//Empty values for the field
 	for (i = 0; i < length; i++) {
 		for (j = 0; j < width; j++) {
 	    	field[(i + 3) * (length + 6) + (j + 3)] = 0;
 		}
 	}
-	//Init add ons
+
+	
+
+	//Init add ons and effects
 	for (i = 0; i < length * width; i++) {
-	    addOns.push(new Array());
+	    addOns.push(0);
+	    
 	}
+
+	//Add values for patches
+	for (i = 0; i < patches.length; i++){
+		effects[(patches[i][0] + 3) * (length + 6) + (patches[i][1] + 3)].push(4);
+	}
+	effects[3 * (length + 6) + 3].push(5);
+	effects[3 * (length + 6) + (length + 2)].push(5);
+	effects[(length + 2) * (length + 6) + 3].push(5);
+	effects[(length + 2) * (length + 6) + (length + 2)].push(5);
+
 	//Obstacles at the start of the game
 	var pivot = length / 2 - 1;
 	for (i = 0; i < 4; i++){
@@ -231,20 +440,20 @@ function initialize_vars(){
 		//left
 		field[(pivot + 2 + i) * (length + 6) + 6] = 3;
 		//bottom
-		field[13 * (length + 6) + pivot + 2 + i] = 3;
+		field[(length - 1) * (length + 6) + pivot + 2 + i] = 3;
 		//right
-		field[(pivot + 2 + i) * (length + 6) + 13] = 3;
+		field[(pivot + 2 + i) * (length + 6) + (length - 1)] = 3;
 	}
 	
 
 	//Deck
 	
-	deck = decks[number];
+	deck = starter;
 
-	//Shuffle deck and draw 6 cards as the starting hand
-	shuffle(1);
-	//Draw 6 if first player, draw 7 if second player
-	draw(5 + num, 0);
+	//Shuffle deck and draw 5 cards as the starting hand
+	deck = shuffle(deck);
+	//Draw 5
+	draw(5, 0);
 	
 }
 
@@ -258,7 +467,7 @@ function checkEnd(){
 	var pivot = length / 2 - 1;
 	for (i = 0; i < length; i++){
 		for (j = 0; j < width; j++){			
-			//Add up tiles in the central shape
+			//Add up tiles in the central rectangle
 			if (i >= pivot && i < pivot + 2 && j >= pivot - 1 && j < pivot + 3){
 				if (field[(i + 3)* (width + 6) + j + 3] == 0){
 					return -1;
@@ -298,8 +507,8 @@ function showStatus(){
 	document.getElementById("display").innerHTML = 
 	"Actions left: " + actions + "<br>" + 
 	"Placements left: " + placements + "<br>" + 
-	"Budget: " + budget + "<br>" + 
-	"Tax turns left: " + t + "<br>" + 
+	"Credits: " + budget.credits + "<br>" + 
+	"Minerals: " + budget.minerals + "<br>" + 
 	"Debt to be paid next turn: " + (2 * debt);
 
 
@@ -310,18 +519,185 @@ function dist(a, b, c, d){
 	return Math.abs(a - c) + Math.abs(b - d);
 }
 
+
+
+
+function tutor(){
+	//First create a canvas to display the cards in the deck
+	$( function() {
+			$( "#deck" ).dialog({
+			  dialogClass: "no-close",
+			  modal: true,
+			  width: 1100,
+			  height: 350,
+			  buttons: [
+			    {
+			      id: "button_ok",
+			      text: "OK",
+			      click: function() {
+			      	//Put card into player's hand
+			      	var card = deck.splice(selected[1], 1)[0];
+			      	hand.push(card);
+			      	//Reset selected card
+			      	selected[1] = -1;
+			      	drawHand();
+			      	drawDeck();
+			        $( this ).dialog( "close" );
+			      }
+			    }
+			  ]
+			});
+			$('#button_ok').button('disable');
+			//Create canvas for display
+			var canvas = document.createElement("canvas");
+			canvas.width = deck.length * 150;
+			canvas.height = 200;
+			canvas.style.left = "0px";
+       	 	canvas.style.top = "0px";
+        	canvas.style.position = "absolute";
+			
+			var overlay = document.createElement("canvas");
+			overlay.width = canvas.width;
+			overlay.height = canvas.height;
+			overlay.style.left = "0px";
+       	 	overlay.style.top = "0px";
+        	overlay.style.position = "absolute";
+
+			var offset = $('#deck').offset();
+			var card;
+			$('#deck').append(canvas);
+			$('#deck').append(overlay);
+			var ctx = canvas.getContext("2d");
+			ctx.clearRect(0, 0, canvas.width, canvas.height);
+			//draw the cards
+			for (index = 0; index < deck.length; index++){
+				cards[deck[index].ind].drawImg(ctx, index * 150, 0, 150, 200);
+
+			}
+			//Make sure the overlay canvas covers the decklist canvas
+			
+			//add mouse listeners
+			overlay.addEventListener("mousedown", 
+				function(event){
+					ctx = overlay.getContext("2d");
+					 var rect = overlay.getBoundingClientRect();
+					ctx.clearRect(0, 0, overlay.width, overlay.height);
+					//Get relative position of cursor
+					var x = event.pageX - rect.left;
+					var w = 150;
+					var index = Math.floor(x / w);	
+					if (index < deck.length){
+						selected[1] = index;
+
+						ctx.strokeStyle = "rgb(100, 255, 100)";
+						ctx.lineWidth = 5;
+						ctx.beginPath();
+						ctx.moveTo((index + 1) * w, 0);
+						ctx.lineTo(index * w, 0);
+						ctx.lineTo(index * w, 200);
+						ctx.lineTo((index + 1) * w, 200);
+						ctx.lineTo((index + 1) * w, 0);
+						ctx.closePath();
+						ctx.stroke();
+						
+						//Enable OK button		
+						$('#button_ok').button('enable');
+					}	
+					
+				}, 
+			false);
+			/*
+			var div = document.getElementById("deck")[0];
+			div.appendChild(canvas);
+			div.appendChild(overlay);
+			*/
+	  } );
+}
+
+//Look through the discard pile
+function seeDiscard(element, arr){
+	if (arr.length > 0){
+		$( function() {
+			//Change title to state number of cards in discard
+			var title = $(element).attr('title');
+			$(element).attr('title', title + ': ' + arr.length + ' cards');
+
+			$( element).dialog({
+			  dialogClass: "no-close",
+			  modal: true,
+			  width: 1100,
+			  height: 350,
+			  buttons: [
+			    {
+			      id: "button_ok",
+			      text: "OK",
+			      click: function() {
+			      	//Just close and do nothing else
+			        $( this ).dialog( "close" );
+			      }
+			    }
+			  ]
+			});
+			//Create canvas for display
+			var canvas = document.createElement("canvas");
+			canvas.width = arr.length * 150;
+			canvas.height = 200;
+			canvas.style.left = "0px";
+       	 	canvas.style.top = "0px";
+        	canvas.style.position = "absolute";
+
+			var offset = $(element).offset();
+			$(element).append(canvas);
+			
+			var ctx = canvas.getContext("2d");
+			ctx.clearRect(0, 0, canvas.width, canvas.height);
+			//draw the cards
+			for (index = 0; index < arr.length; index++){
+				arr[index].drawImg(ctx, index * 150, 0, 150, 200);
+			}
+		  } );
+	}
+}
+
+function trojan(){
+	socket.emit("trojan");
+}
+
+function extraTurn(){
+	extra = 1;
+}
+
+//Take back a current placement
+function undo(){
+	resolving = 0;
+	tempColor = null;
+	improv = 0;
+	//Put card currently in resolution back to owner's hand
+	if (tempCard != null){
+		hand.push(tempCard);
+	}
+	drawHand();
+	//clear field overlay
+	var canvas = document.getElementById("field_overlay");
+	var ctx = canvas.getContext("2d");
+	ctx.clearRect(0, 0, canvas.width, canvas.height);
+	document.getElementById("undoBtn").disabled = true;
+
+}
+
 function createPacket(shape, placement){
 	tempColor = c;
 	tempPacket = new Packet(shape, placement);
 	resolving = 1;
-	
+	document.getElementById("undoBtn").disabled = false;
 }
 
-function createShield(shape){
+function force(){
 	tempColor = "orange";
 	tempPacket = new Packet("1", 0);
-	improv = 3;
+	improv = -1 * num;
 	resolving = 1;
+	document.getElementById("undoBtn").disabled = false;
 }
 
 function artillery(){
@@ -329,6 +705,7 @@ function artillery(){
 	tempPacket = new Packet("1", 0);
 	improv = num;
 	resolving = 1;
+	document.getElementById("undoBtn").disabled = false;
 }
 
 
@@ -336,6 +713,7 @@ function obstruct(shape, placement){
 	tempColor = "black";
 	tempPacket = new Packet(shape, placement);
 	resolving = 1;
+	document.getElementById("undoBtn").disabled = false;
 }
 
 function destroy(shape, row, col, ran){	
@@ -345,12 +723,161 @@ function destroy(shape, row, col, ran){
 	co = col;
 	range = ran;
 	resolving = 1;
+	document.getElementById("undoBtn").disabled = false;
+}
+
+function refinery(){	
+	tempColor = "orange";
+	tempPacket = new Packet('1', 0);
+	improv = num + 2;
+	resolving = 1;
+	document.getElementById("undoBtn").disabled = false;
+}
+
+function mine(){
+	if (actions > 0){
+		budget = budget.add(new Vector(0, countRef()));
+		actions -= 1;
+		showStatus();
+		sendStatus();
+	} else {
+		alert("You do not have enough actions to mine minerals!");
+	}
+}
+
+function countRef(){
+	var count = 0;
+	for (i = 0; i < length; i++){
+		for (j = 0; j < length; j++){
+			var tile = addOns[i * length + j];
+			if (tile == num + 2){
+				//Big minerals
+				if (effects[(i + 3) * (length + 6) + j + 3].includes(5)){
+					count += 2;
+				} else {
+					count += 1;
+				}
+				
+			}
+		}
+	}
+	//console.log(count);
+	return count;
+}
+
+function addForcefield(row, col, dist, n){
+	effects[row * (width + 6) + col].push(n);
+	if (dist > 0){
+		//Add to surrounding tiles
+
+		addForcefield(row + 1, col, dist - 1, n);
+		addForcefield(row, col + 1, dist - 1, n);
+		addForcefield(row - 1, col, dist - 1, n);
+		addForcefield(row, col - 1, dist - 1, n);
+	} 
+}
+
+function clearForcefield(row, col, dist, n){
+	var index = effects[row * (width + 6) + col].indexOf(n);
+	if (index != -1){
+		effects[row * (width + 6) + col].splice(index, 1);
+	}
+	if (dist > 0){
+
+		//Add to surrounding tiles
+		clearForcefield(row + 1, col, dist - 1, n);
+		clearForcefield(row, col + 1, dist - 1, n);
+		clearForcefield(row - 1, col, dist - 1, n);
+		clearForcefield(row, col - 1, dist - 1, n);
+	} 
+}
+
+//Play a polyomino
+function playPoly(p){
+	var image_arr = [];
+	var ok = 0;
+	resolving = 1;
+	//Make a modal dialog box with cards available
+	$( function() {
+		$( "#poly" ).dialog({
+		  dialogClass: "no-close",
+		  modal: true,
+		  width: 1100,
+		  height: 350,
+		  buttons: [
+		    {
+		      id: "button_ok",
+		      text: "OK",
+		      click: function() {
+		      	isPoly = 1;
+		      	execute(poly[p], 1);
+		        $( this ).dialog( "close" );
+		      }
+		    }
+		  ]
+		});
+		$('#button_ok').button('disable');
+		//Create canvas for display
+		var canvas = document.getElementById("p");
+		var overlay = document.getElementById("p_overlay");
+		var w = 150;
+		var offset = $('#poly').offset();
+		var card;
+		$('#poly').append(canvas);
+		$('#poly').append(overlay);
+		var ctx = canvas.getContext("2d");
+		ctx.clearRect(0, 0, canvas.width, canvas.height);
+		//draw the cards
+
+		for (index = 0; index < poly[p].length; index++){
+			var posX = 1050 / 7 * index;
+			
+			poly[p][index].drawImg(ctx, posX, 0, 150, 200);
+		}
+		//add mouse listeners
+		overlay.addEventListener("mousedown", 
+			function(event){
+				ctx = overlay.getContext("2d");
+				ctx.clearRect(0, 0, canvas.width, canvas.height);
+				//Get relative position of cursor
+				var x = event.pageX - offset.left;
+				var index = Math.floor(x / w);	
+				if (index < poly[p].length){
+					selected[1] = index;
+					
+					ctx.strokeStyle = "rgb(100, 255, 100)";
+					ctx.lineWidth = 5;
+					ctx.beginPath();
+					ctx.moveTo((index + 1) * w, 0);
+					ctx.lineTo(index * w, 0);
+					ctx.lineTo(index * w, 200);
+					ctx.lineTo((index + 1) * w, 200);
+					ctx.lineTo((index + 1) * w, 0);
+					ctx.closePath();
+					ctx.stroke();
+
+					//Set temp poly
+					//tempPacket = poly[p][index];	
+					
+					//Enable OK button		
+					$('#button_ok').button('enable');
+				}	
+				
+			}, 
+		false);
+
+  } );
+	
+	polyEnabled = 1;
+	var canvas = document.getElementById("p_overlay");
+	
 }
 
 //Reset variables for new turn
 function reset(){
-	//No mulligans allowed after play has begun
-	document.getElementById("mulliganBtn").disabled = true;
+	free = 0;
+	lastAction = null;
+
 	actions = 4;
 	placements = 1;	
 	sendStatus();
@@ -359,63 +886,44 @@ function reset(){
 	var ctx = canvas.getContext("2d");
 	ctx.clearRect(0, 0, canvas.width, canvas.height);
 	//Disable buttons
-	turn = 2;
+	turn = 2; //Discard phase
+
 	disableButtons();
-	//Move to discard phase
-	if (hand.length <= 7){
+	document.getElementById("discardBtn").disabled = false; //Keep discard avaiable
+	if (hand.length <= 5){
+		//Draw back up to 5
+		draw(5 - hand.length, 0);
+		//Hand turn to next player
 		turn = 0;
-		//Shift the queue
-		shiftQueue(true);
-		socket.emit("upkeep");
-		//Disable the discard button
-		document.getElementById("discardBtn").disabled = true;
+		//Empty the credits but keep the minerals
+		budget = budget.project(1);
+		if (extra == 0){
+			disableButtons();
+			var text ="____________________";
+			updateScroll(text);
+			socket.emit("upkeep");
+			
+		} else {
+			enableButtons();
+			turn = 1;
+		}	
 	}
 }
 
-//Shifts the queue by one
-function shiftQueue(b){
-	var temp = [];
 
-	for (i = 0; i < queue.length; i++){
-		if (i + 1 < queue.length){
-			temp[i] = queue[i + 1];
-		} 
-	}
-
-	//set card
-	freeCard = queue[0];
-
-	queue = temp;
-	drawQueue();
-	drawCard();
-	//Only send info if b flag is true
-	if (b == true){
-		socket.emit("updateQueue");
-	}
-
-}
-
-//Shuffle deck: t = 1 shuffle deck, t = 0 shuffle discard
-function shuffle(t){
+//Shuffle an array
+function shuffle(arr){
 	var temp = [];
 	var a = [];
-	if (t == 1){
-		while (deck.length > 0){
-			var card = Math.floor(Math.random() * deck.length);
-			temp.push(deck[card]);
-			deck.splice(card, 1);
+	while (arr.length > 0){
+		var card = Math.floor(Math.random() * arr.length);
+		temp.push(arr[card]);
+		arr.splice(card, 1);
 
-		}
-	} else {
-		while (discard.length > 0){
-			var card = Math.floor(Math.random() * discard.length);
-			temp.push(discard[card]);
-			discard.splice(card, 1);
-
-		}
 	}
 	
-	deck = temp.slice();
+	
+	return temp.slice();
 }
 
 //Add actions
@@ -431,7 +939,11 @@ function fastGain(n){
 
 //Gain "coins"
 function gain(n){
-	budget += n;
+	budget = budget.add(new Vector(n, 0));
+}
+
+function fundraiser(){
+	gain(hand.length);
 }
 
 //Tax (for n turns)
@@ -440,37 +952,72 @@ function tax(a, n){
 	tax_turns.push(n);
 }
 
-function wipeBoard(){
-	//Wipe field (except for tiles under deflector shield)
-	for (i = 0; i < length; i++) {
-		for (j = 0; j < width; j++) {
-			if (!addOns[i * length + j].includes(3)){
-	    		field[(i + 3) * (length + 6) + (j + 3)] = 0;
-	    		addOns[i * length + j] = new Array();
-	    	}
-		}
-	}
-	socket.emit("boardwipe");
-	drawField();
-}
 
-function selectedDiscard(){
-	if (turn != 0){
-		if (cardSelected != -1){
-			discardHand(cardSelected);
-			/*During the turn, discard gives you 1 credit
-			otherwise if the discard was during the discard
-			phase, then there is no benefit*/
-			budget += 1;
-			sendStatus();
-			showStatus();
-			if (turn == 2){
-				reset();
+
+//Discard at end of turn
+function selectedDiscard(t){
+	console.log(selected[0]);
+	if (t == 1){
+	//Can only discard after turn ends and with you have more than 7 cards in hand
+		if (turn == 2 && hand.length > 5){
+			if (selected[0] != -1){
+				discardHand(selected[0]);
+				sendStatus();
+				showStatus();
+				
+				selected[0] = -1;
+				//Hand turn to next player if hand size is acceptable
+				if (hand.length <= 5){
+					
+					turn = 0;
+					if (extra == 0){
+						socket.emit("upkeep");
+						//Disable the discard button
+						document.getElementById("discardBtn").disabled = true;
+					} else {
+						enableButtons();
+						turn = 1;
+					}	
+				}
+			} else {
+				alert("Select a card first!");
 			}
-			cardSelected = -1;
+		} else if (hand.length <= 5){
+			//Hand turn to next player
+			turn = 0;
+			if (extra == 0){
+				socket.emit("upkeep");
+				//Disable the discard button
+				document.getElementById("discardBtn").disabled = true;
+			} else {
+				enableButtons();
+				turn = 1;
+			}	
+		}
+	} else {
+		if (selected[0] != -1 && selected[0] < hand.length){
+			if (actions > 0){
+				//Can't discard horse
+				if (selected[0].ind != 33){
+					discardHand(selected[0]);
+				} else {
+					alert("You cannot discard the Horse card as an action!");
+				}
+				actions -= 1;
+				console.log(actions);
+				sendStatus();
+				showStatus();
+				
+				selected[0] = -1;
+				
+			} else {
+				alert("You don't have enough actions to discard a card!");
+			}
+			
 		} else {
 			alert("Select a card first!");
 		}
+
 	}
 	var canvas = document.getElementById("hand_overlay");
 	var ctx = canvas.getContext("2d");
@@ -480,11 +1027,19 @@ function selectedDiscard(){
 //Discard a particular card from own hand 
 function discardHand(ind){	
 	var a = hand.splice(ind, 1);
-	discard.push(a[0]);
+	updateDiscard(a[0]);
 	drawDiscard(a[0]);
 	drawHand();
 	sendStatus();
 	showStatus();
+	var text ="<strong> Player " + num + "</strong> discards <strong>" + a[0].name + "<strong>. <br>";
+	updateScroll(text);
+}
+
+function targetDiscard(player){
+	if (player == 1){
+		socket.emit("targetDiscard", {ind: -1});
+	}
 }
 
 //Random discard target toward a player
@@ -498,6 +1053,45 @@ function randomDiscard(player){
 
 }
 
+function adjacency(n){
+	if (n == 0){
+		adjOpp = 1;
+	} else {
+		adj = 1;
+	}
+}
+
+function duplicate(){
+	if (lastAction == null){
+		free = 1;
+	} else {
+		//Copy last action
+		leftbr = s.indexOf("(");
+		rightbr = s.indexOf(")");
+		func = s.substring(0, leftbr);
+		args = s.substring(leftbr + 1, rightbr).split(", ");
+		(window[func]).apply(this, args);
+		//Reset current card
+		selected[0] = -1;
+		selected[1] = -1;
+		//Redraw canvasses
+		var canvas = document.getElementById("hand_overlay");
+		var ctx = canvas.getContext("2d");
+		ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+		var canvas = document.getElementById("p");
+		var ctx = canvas.getContext("2d");
+		ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+		var canvas = document.getElementById("p_overlay");
+		var ctx = canvas.getContext("2d");
+		ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+		showStatus();
+		sendStatus();
+
+	}
+}
 
 //Draw cards
 function draw(n, p){	
@@ -506,7 +1100,7 @@ function draw(n, p){
 			if (deck.length == 0){	
 				//Shuffle discard pile into deck
 				if (discard.length > 0){
-					shuffle(0);
+					deck = shuffle(discard);
 					//Redraw discard
 					var canvas = document.getElementById("discard");
 					var ctx = canvas.getContext("2d");
@@ -520,8 +1114,14 @@ function draw(n, p){
 				}
 				
 			}
-			hand.push(deck[deck.length - 1]);
-			deck.splice(-1, 1);
+			var card = deck.pop();
+			hand.push(card);
+			//Drawing a trojan horse
+			if (card.ind == 33){
+				socket.emit("horse");
+				var text ="<strong> Player " + num + "</strong> has draw a <strong> Trojan Horse </strong>! <strong> Player " + (3 - num) + "</strong> gains 2 budget during his/her next upkeep. <br>";
+				updateScroll(text);
+			}
 			actions -= p;
 			var canvas = document.getElementById("hand_overlay");
 			var ctx = canvas.getContext("2d");
@@ -533,9 +1133,18 @@ function draw(n, p){
 	
 }
 
+function transfer(){
+	if (budget.minerals > 0){
+		budget = budget.add(new Vector(1, -1));
+	} else {
+		alert("You don't have any minerals to transfer into credits!");
+	}
+
+	sendStatus();
+	showStatus();
+}
+
 function drawAction(){
-	//No mulligans allowed after play has begun
-	document.getElementById("mulliganBtn").disabled = true;
 	if (actions > 0){
 		draw(1, 1);
 		
@@ -555,8 +1164,20 @@ function initialize_deck(){
 	
 	var canvas = document.getElementById("deck_display");
 	canvas.addEventListener("mousedown", drawAction, false);
+
+	canvas = document.getElementById("discard");
+	canvas.addEventListener("mousedown", function(){
+		seeDiscard('#discard_display', discard);
+	}, false);
+
+	canvas = document.getElementById("opp_discard");
+	canvas.addEventListener("mousedown", function(){
+		seeDiscard('#opp_discard_display', opp_discard);
+	}, false);
 	
 }
+
+
 
 //Initialize event listeners for th field canvas
 function initialize_field(){
@@ -576,7 +1197,6 @@ function initialize_field(){
 //Rotate selected packet (clockwise) and redraw
 function rotatePacket(event){
 	tempPacket.rotate();
-	
 }
 
 //Put selected packet onto the field
@@ -586,16 +1206,15 @@ function fieldActions(event){
 	row = Math.floor(y / blockLength);
 	
 	col = Math.floor(x / blockLength);
-	//If we're using an action card
+	//If we're using an action card/poly card
 	if (tempCard != null && resolving == 1){	
 		if (placements - tempPacket.placement >= 0){		
 			//Draw shape
 			
-			var colliding = tempPacket.collide(row + 3, col + 3);
-			var adjacent = tempPacket.adjacent(row + 3, col + 3);
-
+			var colliding = tempPacket.collide(row + 3, col + 3, 3 - num);
+			var adjacent = tempPacket.adjacent(row + 3, col + 3, num);
 			//If not a destruction tile
-			if (!colliding && (adjacent || tempColor == "black")){
+			if (!colliding && (adjacent || tempColor == "black") && tempColor != "orange"){
 				var n = num;
 				if (tempColor == "black"){
 					n = 3;
@@ -604,34 +1223,86 @@ function fieldActions(event){
 				tempPacket.place(row + 3, col + 3, n);
 				drawField();
 
+				//Clear poly
+				polyEnabled = 0;
+
+				adj = 0;
+				adjOpp = 0;
+
 				//Send message to server containing coordinates and packet shape
 				socket.emit("placement", {xcoord: col, ycoord: row, sh: tempPacket.getShape(), color: tempColor});
 
 				//Remove card from hand
-				//hand.splice(cardSelected, 1);
+				//hand.splice(selected[0], 1);
 
 				//Redraw Hand
 				drawHand();
 				
 				placements -= tempPacket.getPlacement();
-				budget -= tempCard.cost;
+				budget = budget.subtract(tempCard.cost);
 				actions -= tempCard.ac;
-				discard.push(tempCard);
+				if (isPoly != 1){
+					updateDiscard(tempCard);
+				}
+				isPoly = 0;
 				resolving = 0;
 				tempCard = null;
 				
-			}		
+			} else if (tempColor == "orange" && addOns[row * (length) + col] == 0
+				&& tempPacket.collideWith(row + 3, col + 3, num)){
+				//Each tile you control can only have one improvement of each type	
+				//Add improvement
+				
+				//If it's a forcefield also modify the tiles within a distance of 3
+				if (improv == -1 * num){
+					addForcefield(row + 3, col + 3, 2, num);
+					socket.emit("addForcefield", {xcoord: col + 3, ycoord: row + 3, player: -1 * improv});
+				} 
+
+				//If it's a refinery it can only be placed on mineral tiles
+				if ((improv == 2 + num && 
+					(effects[(row + 3) * (length + 6) + (col + 3)].includes(4) || effects[(row + 3) * (length + 6) + (col + 3)].includes(5)))
+					|| improv != 2 + num){
+					
+					addOns[row * (length) + col] = improv;
+					socket.emit("addon", {xcoord: col, ycoord: row, type: improv});
+					drawField();
+					//Send message to server containing coordinates and packet shape
+					
+
+					//Redraw Hand
+					drawHand();				
+
+					placements -= tempPacket.getPlacement();
+					budget = budget.subtract(tempCard.cost);
+					actions -= tempCard.ac;
+					updateDiscard(tempCard);
+					resolving = 0;
+					tempCard = null;
+				} 
+				
+
+				
+			}	
 
 			//destruction tiles can be placed anywhere within range
 			if (tempColor == "white" && dist(r, co, row, col) <= range){
 				
 				//Can bomb any tile except those under a deflector shield
 				//Place packet with value 0 (essentially resetting the tile it was placed on)
+
+				//See if the square contains a forcefield generator
+				var generator = addOns[row * width + col];
 			
 				tempPacket.place(row + 3, col + 3, 0);
-				tempPacket.placeImp(row, col, 0);
-			    
 				//Erase tile
+				tempPacket.placeImp(row, col, 0);
+				//Erase forcefield effects
+			    if (generator < 0){
+			    	clearForcefield(row + 3, col + 3, 2, -1 * generator);
+			    	socket.emit("clearForcefield", {xcoord: col + 3, ycoord: row + 3, player: -1 * generator});
+			    }
+				
 				drawField();
 
 				//Send message to server containing coordinates and packet shape
@@ -641,41 +1312,15 @@ function fieldActions(event){
 				drawHand();				
 
 				placements -= tempPacket.getPlacement();
-				budget -= tempCard.cost;
+				budget = budget.subtract(tempCard.cost);
 				actions -= tempCard.ac;
-				discard.push(tempCard);
+				updateDiscard(tempCard);
 				resolving = 0;
 				tempCard = null;
 				
 			}
 
-			//Each tile you control can only have one improvement of each type
-			//Artillery
-			if (tempColor == "orange" && !addOns[row * (length) + col].includes(improv)
-				&& tempPacket.collideWithOwn(row + 3, col + 3, num)){
-				//Add improvement
-				addOns[row * (length) + col].push(improv);
-				//If it's a deflector shield also modify the adjacen tiles
-				if (improv == 3){
-					addOns[Math.max(row - 1, 0) * (length) + col].push(improv);
-					addOns[Math.min(row + 1, 18) * (length) + col].push(improv);
-					addOns[row * (length) + Math.max(col - 1, 0)].push(improv);
-					addOns[row * (length) + Math.min(col + 1, 18)].push(improv);
-				}
-				drawField();
-				//Send message to server containing coordinates and packet shape
-				socket.emit("addon", {xcoord: col, ycoord: row, type: improv});
-
-				//Redraw Hand
-				drawHand();				
-
-				placements -= tempPacket.getPlacement();
-				budget -= tempCard.cost;
-				actions -= tempCard.ac;
-				discard.push(tempCard);
-				resolving = 0;
-				tempCard = null;
-			}
+			
 
 			var canvas = document.getElementById("hand_overlay");
 			var ctx = canvas.getContext("2d");
@@ -703,11 +1348,20 @@ function fieldActions(event){
 			if (tempColor == "white" && dist(r, co, row, col) <= range){
 				
 				//Place packet with value 0 (essentially resetting the tile it was placed on)
-				//Artillery is "armor-piercing" so it goes through deflector shields
+
+				//See if the square contains a forcefield generator
+				var generator = addOns[row * width + col];
+			
 				tempPacket.place(row + 3, col + 3, 0);
-				tempPacket.placeImp(row, col, 0);
-			    
 				//Erase tile
+				tempPacket.placeImp(row, col, 0);
+				//Erase forcefield effects
+			    if (generator < 0){
+			    	clearForcefield(row + 3, col + 3, 2, -1 * generator);
+			    	socket.emit("clearForcefield", {xcoord: col + 3, ycoord: row + 3, player: -1 * generator});
+			    }
+				
+			    
 				drawField();
 
 				//Send message to server containing coordinates and packet shape
@@ -715,20 +1369,23 @@ function fieldActions(event){
 				socket.emit("improvement", {xcoord: col, ycoord: row, sh: tempPacket.getShape(), n: "0"});	
 
 
+
 				placements -= tempPacket.getPlacement();
-				budget -= 1;
+				budget = budget.subtract(new Vector(1, 0));;
 				actions -= 1;
 				resolving = 0;
 				tempPacket = null;
 			}
 		} else {
-			//Firing an artillery, gets through deflector shields
-			if (actions > 0 && budget > 0){
-				destroy("1", row, col, 4);
-			} else if (actions == 0){
-				alert("You do not have enough actions to fire an artillery!");
-			} else if (budget <= 0){
-				alert("You do not have enough credits to fire an artillery!");
+			if (addOns[row * (length) + col] == num){
+				if (actions > 0 && budget.credits > 0){
+					//Fire an artillery
+					destroy("1", row, col, 4);					
+				} else if (actions == 0){
+					alert("You do not have enough actions to fire an artillery!");
+				} else if (budget.credits <= 0){
+					alert("You do not have enough credits to fire an artillery!");
+				}
 			}
 		}
 		tempCard = null;
@@ -748,15 +1405,18 @@ function drawShadow(x, y){
 
 		row = Math.floor(y / blockLength);
 		col = Math.floor(x / blockLength);
-		var colliding = tempPacket.collide(row + 3, col + 3);
-		var adjacent = tempPacket.adjacent(row + 3, col + 3);
+		var colliding = tempPacket.collide(row + 3, col + 3, 3 - num);
+		//This doesn't check collision with forcefields
+		var collidingBlocks = tempPacket.collide(row + 3, col + 3, -10);
+		var adjacent = tempPacket.adjacent(row + 3, col + 3, num);
 		var color = tempColor;
 
-		//If shape is obstruction then only need to check collisions
-		if (color == "black" && colliding){
+		//If shape is obstruction then only need to check collisions (with blocks and not forcefields)
+		if (color == "black" && collidingBlocks){
 			color = "red";
-		} else if (color != "black" && (colliding || !adjacent)){
-			//Otherwise it's a player's piece so also need to check adjacency
+		} else if (color != "black" && (colliding || 
+			!adjacent )) {
+			//Otherwise it's a player's piece so also need to check collision with forcefields and adjacency
 			color = "red";
 		} 
 		//Bomb
@@ -771,8 +1431,17 @@ function drawShadow(x, y){
 		//Add-on
 		if (tempColor == "orange"){
 			//Must collide with itself (Equiv to being on an own tile)
-			if (tempPacket.collideWithOwn(row + 3, col + 3, num)){
-				color = "orange";
+			if (addOns[row * (length) + col] == 0 && tempPacket.collideWith(row + 3, col + 3, num)){
+				if (improv == 2 + num){
+					//good to go only if above mineral patch
+					if (effects[(row + 3) * (length + 6) + col + 3].includes(4)){
+						color = "white";
+					} else {
+						color = "red";
+					}
+				} else {
+					color = "white";
+				}
 			} else {
 				color = "red";
 			}
@@ -812,19 +1481,25 @@ function initialize_hand(){
 	canvas.oncontextmenu = function() {
      	return false;  
 	} 
-	canvas.addEventListener("mousemove", showCard, false);
+	canvas.addEventListener("mousemove", 
+		function(event){
+			showCard(event, hand);
+		}
+	, false);
 	//Left click to select/play card, right click to discard card
 	canvas.addEventListener("mousedown", 
 		function(event){
-			if (event.button == 0){
-				
-				selectCard(event);
-				
-			} else if (event.button == 2){
-				
-				selectCard(event);
-				selectedDiscard();
-				
+			if (event.button == 0){		
+				if (turn == 1){		
+					selectCard(event, "hand_overlay", hand);	
+				}			
+			} else if (event.button == 2){				
+				selectCard(event, "hand_overlay", hand);
+				if (turn == 1){
+					selectedDiscard(0);
+				} else if (turn == 2){
+					selectedDiscard(1);
+				}
 				
 			}
 		}
@@ -832,198 +1507,138 @@ function initialize_hand(){
 }
 
 //Display the card the mouse is hovering over
-function showCard(event){
+function showCard(event, arr){
 	var canvas = document.getElementById("card_display");
 	var ctx = canvas.getContext("2d");
 	ctx.clearRect(0, 0, canvas.width, canvas.height);
-	x = event.pageX;
-	y = event.pageY;
-	var w = Math.min((900 / hand.length), 150);
-	index = Math.floor(x / w);
-	if (index < hand.length){
-		hand[index].drawImg(ctx, 0, 0, 300, 400);
+	var x = event.pageX;
+	var y = event.pageY;
+	var w = Math.min((900 / arr.length), 150);
+	var index = Math.floor(x / w);
+	if (index < arr.length){
+		
+		arr[index].drawImg(ctx, 0, 0, 300, 400);
 	}
 }
 
 //On mouse click select a card
-function selectCard(event){
-	var canvas = document.getElementById("hand_overlay");
+function selectCard(event, t, arr){
+	var canvas = document.getElementById(t);
 	var ctx = canvas.getContext("2d");
+	var p;
 	ctx.clearRect(0, 0, canvas.width, canvas.height);
 	x = event.pageX;
 	y = event.pageY;
-	var w = Math.min((900 / hand.length), 150);
+	var w = Math.min((900 / arr.length), 150);
 	index = Math.floor(x / w);
+	if (t == "hand_overlay"){
+		p = 0;
+	} else {
+		p = 1;
+	}
+
 	//Double click
-	if (index == cardSelected){
+	if (index == selected[p]){
 		if (turn == 1){
 			if (resolving == 0){
-				execute();
+
+				if (selected[p].ind == 33){
+					//Can't play trojan horse card
+					alert("You cannot play this card!");
+					
+				} else if (imps.includes(selected[p].ind) && !contains(field, num)){
+					//This is if there are no tiles on which to put improvements
+					alert("You have no tiles on which to place improvements!");
+				} else {
+					execute(arr, p);
+				}
 			} else {
 				alert("Please finish resolving your current card!");
 			}
 		}
 		
 	} else {
-		if (index < hand.length){
-			cardSelected = index;
+		if (index < arr.length){
+			selected[p] = index;
 			
 			ctx.strokeStyle = "rgb(100, 255, 100)";
 			ctx.lineWidth = 5;
 			ctx.beginPath();
 			ctx.moveTo((index + 1) * w, 0);
 			ctx.lineTo(index * w, 0);
-			ctx.closePath();
-			ctx.stroke();
-
-			ctx.beginPath();
-			ctx.moveTo(index * w, 0);
 			ctx.lineTo(index * w, 200);
+			ctx.lineTo((index + 1) * w, 200);
+			ctx.lineTo((index + 1) * w, 0);
 			ctx.closePath();
 			ctx.stroke();
 
-			ctx.beginPath();
-			ctx.moveTo(index * w, 200);
-			ctx.lineTo((index + 1) * w, 200);
-			ctx.closePath();
-			ctx.stroke();
 			//Set temp card
-			tempCard = hand[index];
+			tempCard = arr[index];
 
 			
 		}	
 	}
 }
 
-//Add card to queue
-function add(){
-	//No mulligans allowed after play has begun
-	document.getElementById("mulliganBtn").disabled = true;
-	if (cardSelected > -1){
-		//Clear tempPacket first
-		tempPacket = null;
-
-		var slot = prompt("Enter the slot in which you want to add your card (minimum 2)", "");
-		if (slot != null){
-			var slotnum = parseInt(slot);
-			var obj = hand.splice(cardSelected, 1)[0];
-			if (queue[slotnum - 1] == null && slotnum >=2){
-				//Discounted cost of the card
-				var price = Math.max(obj.cost - slotnum, 0);
-				if (actions > 0 && budget - price >= 0){
-					//Insert into queue
-					queue[slotnum - 1] = [obj, num];
-
-					//Reset current card
-					cardSelected = -1;
-
-					actions -=1;
-					budget -= price;
-					var canvas = document.getElementById("hand_overlay");
-					var ctx = canvas.getContext("2d");
-					ctx.clearRect(0, 0, canvas.width, canvas.height);
-					drawQueue();
-					drawHand();
-					sendStatus();
-					showStatus();
-
-					socket.emit("queue", {card: obj.ind, player: num, slot: slotnum - 1});
-				} else if (actions <= 0){
-					alert("You do not have enough actions to add a card into the queue!")
-				} else if (budget - price < 0){
-					alert("You do not have enough budget to add this card into slot number " + slotnum + "!");
-				}
-			} else if (queue[slotnum - 1] != null){
-				alert("That slot has already been filled!");
-			} else if (slot < 2){
-				alert("You can only add cards to slots 2 and up!")
-			}
-		}
-
-		//Remove card from hand
-		
-		//Redraw Hand
-		drawHand();
-		drawDiscard(obj);
-		
-		 
-	}
-}
-
 //Execute effect of card
-function execute(){
-	//No mulligans allowed after play has begun
-	document.getElementById("mulliganBtn").disabled = true;
-	if (cardSelected > -1){
+function execute(arr, p){
+	if (selected[p] > -1){
 		//Clear tempPacket first
 		tempPacket = null;
 
-		obj = hand[cardSelected];
-		obj.resolve(1);
-		//Remove card from hand
-		
-		//Redraw Hand
-		drawHand();
-		drawDiscard(obj);
-		
+		obj = arr[selected[p]];
+		if (obj.resolve(free + 1) == 1){
+			//Remove card from hand
+			
+
+			var card = arr[selected[p]];
+			
+			if (p == 0){
+				hand.splice(selected[0], 1)[0];				
+			}
+
+			//When card is finished resolving
+			if (resolving == 0){
+				//discard the resolved card
+				if (p == 0){
+					//Update transcript
+					var text ="<strong> Player " + num + "</strong> plays <strong>" + card.name + "<strong>. <br>";
+					updateScroll(text);
+					
+					//Trash instead of discard if the card is Trojan
+					if (card.ind != 32){
+						updateDiscard(card);
+					}
+				}
+			} else {
+				//Only reset tempcard if it's not a poly choice (i.e. an actual card)
+				if (isPoly != 1) {
+					tempCard = card;
+				}
+			}
+			
+			
+			//Redraw Hand
+			drawHand();
+			drawDiscard(discard[discard.length - 1]);
+		}
 		 
 	}
+	free = 0;
 	//Reset current card
-	cardSelected = -1;
+	selected[0] = -1;
+	selected[1] = -1;
+	//Redraw canvasses
 	var canvas = document.getElementById("hand_overlay");
 	var ctx = canvas.getContext("2d");
 	ctx.clearRect(0, 0, canvas.width, canvas.height);
-	sendStatus();
+
 	showStatus();
+	sendStatus();
 }
 
-//Draw the free card
-function drawCard(){
-	var canvas = document.getElementById("free_card");
-	var ctx = canvas.getContext("2d");
-	ctx.clearRect(0, 0, canvas.width, canvas.height);
-	if (freeCard != null){
-		freeCard[0].drawImg(ctx, 0, 0, 0, 0);
-	} 
-}
 
-//Draw queue
-function drawQueue(){
-	var canvas = document.getElementById("queue_display");
-	var ctx = canvas.getContext("2d");
-	ctx.clearRect(0, 0, canvas.width, canvas.height);
-	ctx.fillStyle = "black";
-	for (i = 0; i < 8; i++){
-		ctx.beginPath();
-		ctx.moveTo(i * 120,0);
-		ctx.lineTo(i * 120,160);
-		ctx.lineWidth = 1;
-		ctx.stroke();
-		ctx.font = "48px serif";
-  		ctx.strokeText(i + 1, i*120 + 50, 80);
-  		ctx.closePath();
 
-	}
-	//Red line to indicate turn 2
-	ctx.fillStyle = "red";
-	ctx.beginPath();
-	ctx.moveTo(120,0);
-	ctx.lineTo(120,160);
-	ctx.lineWidth = 5;
-	ctx.stroke();
-	ctx.closePath();
-
-	//Draw the cards on the queue
-	for (index = 0; index < queue.length; index++){
-		var posX = 120 * index;
-		if (queue[index] != null){
-			queue[index][0].drawImg(ctx, posX, 0, 120, 160);
-		}
-
-	    
-	}
-
-}
 
 //Draw discard pile
 function drawDiscard(obj){
@@ -1048,35 +1663,56 @@ function drawField(){
 	var c = document.getElementById("field");
 	var ctx = c.getContext("2d");
 	ctx.clearRect(0, 0, c.width, c.height);
-	for (i = 3; i < 22; i++){
-		for (j = 3; j < 22; j++){
+	for (i = 3; i < 3 + length; i++){
+		for (j = 3; j < 3 + length; j++){
+
 			//Draw each tile
 			var tile = field[i * (length + 6) + j];
 			ctx.fillStyle = colors[tile];
-			ctx.fillRect((j - 3)* blockLength, (i - 3)* blockLength, blockLength, blockLength);
+			ctx.fillRect((j - 3) * blockLength, (i - 3) * blockLength, blockLength, blockLength);
+			//Draw effects
+			var effects_tile = effects[i * (length + 6) + j];
+ 			//Draw forcefield markers
+ 			if (effects_tile.includes(1)){ 				
+ 				
+ 				ctx.beginPath();
+ 				ctx.fillStyle = colors[1];
+ 				//Draw square
+ 				ctx.rect((j - 3) * blockLength + 5, (i - 3) * blockLength + 5, blockLength - 10, blockLength - 10);
+				
+				ctx.lineWidth = 5;
+				ctx.strokeStyle = colors[1];
+				ctx.stroke();
+				
+	
+ 			}
+ 			if (effects_tile.includes(2)){
+ 				ctx.beginPath();
+ 				ctx.fillStyle = colors[2];
+ 				//Draw ssquare
+				ctx.rect((j - 3) * blockLength + 10, (i - 3) * blockLength + 10, blockLength - 20, blockLength - 20);
+				
+				ctx.lineWidth = 5;
+				ctx.strokeStyle = colors[2];
+				ctx.stroke();
+				
+ 			}
+ 			//Minerals
+ 			if (effects_tile.includes(4)){
+ 				var image = images[41];
+ 				ctx.drawImage(image, (j - 3) * blockLength, (i - 3) * blockLength, blockLength, blockLength);
+				
+ 			}
+ 			//Big minerals
+ 			if (effects_tile.includes(5)){
+ 				var image = images[42];
+ 				ctx.drawImage(image, (j - 3) * blockLength, (i - 3) * blockLength, blockLength, blockLength);
+				
+ 			}
 		}
 	}
 
-	//Draw central square (superweapon)
-	var pivot = (length / 2 - 1);
-	ctx.beginPath();
-		ctx.moveTo(pivot * blockLength, 
-			pivot * blockLength);
-		ctx.lineTo(pivot * blockLength, (pivot - 1) * blockLength);
-		ctx.lineTo((pivot + 2) * blockLength, (pivot - 1) * blockLength);
-		ctx.lineTo((pivot + 2) * blockLength, pivot * blockLength);
-		ctx.lineTo((pivot + 3) * blockLength, pivot * blockLength);
-		ctx.lineTo((pivot + 3) * blockLength, (pivot + 2) * blockLength);
-		ctx.lineTo((pivot + 2) * blockLength, (pivot + 2) * blockLength);
-		ctx.lineTo((pivot + 2) * blockLength, (pivot + 3) * blockLength);
-		ctx.lineTo((pivot) * blockLength, (pivot + 3) * blockLength);
-		ctx.lineTo((pivot) * blockLength, (pivot + 2) * blockLength);
-		ctx.lineTo((pivot - 1) * blockLength, (pivot + 2) * blockLength);
-		ctx.lineTo((pivot - 1) * blockLength, (pivot) * blockLength);
-		ctx.lineTo((pivot) * blockLength, (pivot) * blockLength);
-		ctx.lineWidth = 5;
-		ctx.strokeStyle = 'black';
-		ctx.stroke();
+	
 	
 	//Draw grid
 	for (i = 0; i < length; i++){
@@ -1092,14 +1728,39 @@ function drawField(){
 
 	}
 
+	//Draw central square (superweapon)
+	var pivot = (length / 2 - 1);
+	ctx.beginPath();
+	ctx.moveTo(pivot * blockLength, 
+		pivot * blockLength);
+	ctx.lineTo(pivot * blockLength, (pivot - 1) * blockLength);
+	ctx.lineTo((pivot + 2) * blockLength, (pivot - 1) * blockLength);
+	ctx.lineTo((pivot + 2) * blockLength, pivot * blockLength);
+	ctx.lineTo((pivot + 3) * blockLength, pivot * blockLength);
+	ctx.lineTo((pivot + 3) * blockLength, (pivot + 2) * blockLength);
+	ctx.lineTo((pivot + 2) * blockLength, (pivot + 2) * blockLength);
+	ctx.lineTo((pivot + 2) * blockLength, (pivot + 3) * blockLength);
+	ctx.lineTo((pivot) * blockLength, (pivot + 3) * blockLength);
+	ctx.lineTo((pivot) * blockLength, (pivot + 2) * blockLength);
+	ctx.lineTo((pivot - 1) * blockLength, (pivot + 2) * blockLength);
+	ctx.lineTo((pivot - 1) * blockLength, (pivot) * blockLength);
+	ctx.lineTo((pivot) * blockLength, (pivot) * blockLength);
+	ctx.lineWidth = 5;
+	ctx.strokeStyle = 'red';
+	ctx.stroke();
+
 	//Draw addons
 	for (i = 0; i < length; i++){
 		for (j = 0; j < length; j++){
+			var centerX = j * blockLength + 0.5 * blockLength;
+			var centerY = i * blockLength + 0.5 * blockLength;
 			//Draw each tile
 			var tile = addOns[i * length + j];
-			if (tile.includes(1)|| tile.includes(2)){
-				var centerX = j * blockLength + 0.5 * blockLength;
-				var centerY = i * blockLength + 0.5 * blockLength;
+			
+
+ 			//Draw artillery
+ 			if (tile == 1 || tile == 2){
+				//Draw a circle for the artillery
 		        var radius = blockLength / 3;
 
 		        ctx.beginPath();
@@ -1109,18 +1770,38 @@ function drawField(){
 		        ctx.lineWidth = 2;
 		        ctx.strokeStyle = '#003300';
 		        ctx.stroke();
- 			} 
- 			if (tile.includes(3)){
- 				//Draw deflector shield
- 				ctx.beginPath();
-				ctx.moveTo(j * blockLength, i * blockLength);
-				ctx.lineTo(j * blockLength, (i + 1) * blockLength);
-				ctx.lineTo((j + 1) * blockLength, (i + 1) * blockLength);
-				ctx.lineTo((j + 1) * blockLength, i * blockLength);
-				ctx.lineTo(j * blockLength, i * blockLength);
-				ctx.lineWidth = 5;
-				ctx.strokeStyle = 'white';
-				ctx.stroke();
+		        ctx.fillStyle = 'black';
+		        ctx.font = 'bold 25px arial';
+  				ctx.fillText('A', centerX, centerY + 10);
+ 			} else if (tile == -1 || tile == -2){
+ 				//Draw a circle for the artillery
+		        var radius = blockLength / 3;
+
+		        ctx.beginPath();
+		        ctx.arc(centerX, centerY, radius, 0, 2 * Math.PI, false);
+		        ctx.fillStyle = 'gray';
+		        ctx.fill();
+		        ctx.lineWidth = 2;
+		        ctx.strokeStyle = '#003300';
+		        ctx.stroke();
+		        ctx.fillStyle = 'black';
+		        ctx.font = 'bold 25px arial';
+  				ctx.fillText('F', centerX, centerY + 10);
+ 			} else if (tile == 3 || tile == 4){
+ 				//Draw a circle for the artillery
+		        var radius = blockLength / 3;
+
+		        ctx.beginPath();
+		        ctx.arc(centerX, centerY, radius, 0, 2 * Math.PI, false);
+		        ctx.fillStyle = 'gray';
+		        ctx.fill();
+		        ctx.lineWidth = 2;
+		        ctx.strokeStyle = '#003300';
+		        ctx.stroke();
+		        ctx.fillStyle = 'black';
+		        ctx.font = 'bold 25px arial';
+		        ctx.textAlign = "center";
+  				ctx.fillText('R', centerX, centerY + 10);
  			}
 		}
 	}
@@ -1139,6 +1820,7 @@ function drawHand(){
 	}
 }
 
+
 //Send public info to opponent
 function sendStatus(){
 	socket.emit("status", {actions: actions, placements: placements, budget: budget, handsize: hand.length});
@@ -1149,7 +1831,8 @@ socket.on("status", function(data){
 	document.getElementById("opp").innerHTML = 
 	"Opponent's actions: " + data.actions + "<br>" + 
 	"Opponent's placements: " + data.placements + "<br>" + 
-	"Opponent's Budget: " + data.budget + "<br>" +
+	"Opponent's credits: " + data.budget.credits + "<br>" +
+	"Opponent's minerals: " + data.budget.minerals + "<br>" +
 	"Opponent's hand size: " + data.handsize;
 });
 
@@ -1160,36 +1843,25 @@ socket.on("improvement", function(data){
 });
 
 socket.on("addon", function(data){
-	addOns[data.ycoord * (length) + data.xcoord].push(data.type);
-	//Deflector shield
-	if (data.type == 3){
-		var row = data.ycoord;
-		var col = data.xcoord;
-		addOns[Math.max(row - 1, 0) * (length) + col].push(data.type);
-		addOns[Math.min(row + 1, 18) * (length) + col].push(data.type);
-		addOns[row * (length) + Math.max(col - 1, 0)].push(data.type);
-		addOns[row * (length) + Math.min(col + 1, 18)].push(data.type);
-	}
+	addOns[data.ycoord * (length) + data.xcoord] = data.type;
+	
+	drawField();
+});
+
+socket.on("addForcefield", function(data){
+	addForcefield(data.ycoord, data.xcoord, 2, data.player);
+	
+	drawField();
+});
+
+socket.on("clearForcefield", function(data){
+	clearForcefield(data.ycoord, data.xcoord, 2, data.player);
+	
 	drawField();
 });
 
 socket.on("boardwipe", function(data){
 	wipeBoard();
-});
-
-socket.on("queue", function(data){
-	queue[data.slot] = [cards[data.card], data.player];
-	drawQueue();
-});
-socket.on("updateQueue", function(data){
-	shiftQueue(false);
-});
-
-//Playing free card on opp's turn
-socket.on("playCard", function(data){
-	playFreeCard();
-	//start opp's turn
-	socket.emit("enable");
 });
 
 //Functions upon receiving messages from server
@@ -1205,7 +1877,7 @@ socket.on("placement", function(data){
 		n = 3;
 	} else if (data.color == "white"){
 		n = 0;
-		addOns[data.ycoord * length + data.xcoord] = new Array();
+		addOns[data.ycoord * length + data.xcoord] = 0;
 	}
 	packet.place(data.ycoord + 3, data.xcoord + 3, n);
 	//Reset improvements on the tile
@@ -1218,57 +1890,228 @@ socket.on("randomDiscard", function(){
 	randomDiscard(0);
 });
 
+//Add a trojan horse card into the deck
+socket.on("trojan", function(){
+	deck.push(cards[33]);
+
+	deck = shuffle(deck);
+	drawDeck();
+
+});
+
+socket.on("horse", function(){
+	horses += 1;
+
+});
+
+//Write to transcript
+socket.on("event", function(data){
+	var element = document.getElementById("transcript");
+	element.innerHTML += data;
+    element.scrollTop = element.scrollHeight;
+});
+
+socket.on("hand", function(data){	
+	//Open up dialog box to choose to discard
+	$( function() {
+			$( "#opp_hand" ).dialog({
+			  dialogClass: "no-close",
+			  modal: true,
+			  width: 1100,
+			  height: 350,
+			  buttons: [
+			    {
+			      id: "button_ok",
+			      text: "OK",
+			      click: function() {
+			      	//Send info on the card discarded
+			      	socket.emit("targetDiscard", {ind: selected[1]});
+			      	//Reset selected card
+			      	selected[1] = -1;
+			        $( this ).dialog( "close" );
+			      }
+			    }
+			  ]
+			});
+			$('#button_ok').button('disable');
+			//Create canvas for display
+			var canvas = document.getElementById("o_hand");
+			var overlay = document.getElementById("o_hand_overlay");
+			var w = 150;
+			var offset = $('#opp_hand').offset();
+			var card;
+			$('#opp_hand').append(canvas);
+			$('#opp_hand').append(overlay);
+			var ctx = canvas.getContext("2d");
+			ctx.clearRect(0, 0, canvas.width, canvas.height);
+			//draw the cards
+			for (index = 0; index < data.length; index++){
+				var posX = 1050 / 7 * index;
+				
+				cards[data[index].ind].drawImg(ctx, posX, 0, 150, 200);
+			}
+			//add mouse listeners
+			overlay.addEventListener("mousedown", 
+				function(event){
+					ctx = overlay.getContext("2d");
+					ctx.clearRect(0, 0, canvas.width, canvas.height);
+					//Get relative position of cursor
+					var x = event.pageX - offset.left;
+					var index = Math.floor(x / w);	
+					if (index < data.length){
+						selected[1] = index;
+						
+						ctx.strokeStyle = "rgb(100, 255, 100)";
+						ctx.lineWidth = 5;
+						ctx.beginPath();
+						ctx.moveTo((index + 1) * w, 0);
+						ctx.lineTo(index * w, 0);
+						ctx.lineTo(index * w, 200);
+						ctx.lineTo((index + 1) * w, 200);
+						ctx.lineTo((index + 1) * w, 0);
+						ctx.closePath();
+						ctx.stroke();
+						
+						//Enable OK button		
+						$('#button_ok').button('enable');
+					}	
+					
+				}, 
+			false);
+
+	  } );
+});
+
+socket.on("targetDiscard", function(data){
+	//Opp is discarding from our hand so need to send hand info
+	if (data.ind == -1){
+		socket.emit("hand", hand);
+	} else {
+		//Opp told us which card to discard, so discard it
+		var obj = hand.splice(data.ind, 1)[0];
+		updateDiscard(obj);
+		drawHand();
+		drawDiscard(obj);
+		sendStatus();
+		showStatus();
+    }
+});
+
+
+socket.on("market", function(data){
+	market = data;
+	drawMarket();
+});
+
+socket.on("quantity", function(data){
+	quantity[data] -= 1;
+	drawMarket();
+});
+
+socket.on("discard", function(data){
+	opp_discard.push(cards[data]);
+	var canvas = document.getElementById("opp_discard");
+	var ctx = canvas.getContext("2d");
+	cards[data].drawImg(ctx, 0, 0, 150, 200);
+
+});
+
+
+function updateDiscard(obj){
+	discard.push(obj);
+	socket.emit("discard", obj.getIndex());
+}
+
+function updateScroll(text){
+    var element = document.getElementById("transcript");
+	element.innerHTML += text;
+    element.scrollTop = element.scrollHeight;
+    socket.emit("event", text);
+}
+
+function drawMarket(){
+
+	var canvas = document.getElementById("staples");
+	var ctx = canvas.getContext("2d");
+	var w = 150;
+	var h = 200;
+	//Draw staples
+	for (i = 0; i < staples.length; i++){
+		var row = Math.floor(i / 4);
+		var col = i % 4;
+		if (quantity[i] > 0){
+			cards[staples[i]].drawImg(ctx, col * w, row * h, 150, 200);
+			//Draw number of copies
+			ctx.beginPath();
+			ctx.arc(col * w + 20, row * h + 20, 20, 0, 2 * Math.PI, false);
+	        ctx.fillStyle = 'white';
+	        ctx.fill();
+	        ctx.lineWidth = 2;
+	        ctx.strokeStyle = '#003300';
+	        ctx.stroke();
+	        ctx.fillStyle = 'black';
+	        ctx.font = 'bold 25px arial';
+			ctx.fillText(quantity[i], col * w + 5, row * h + 30);
+		}
+	}
+	
+	//Draw other cards from a shuffled market pile
+	canvas = document.getElementById("random");
+	ctx = canvas.getContext("2d");
+
+	for (i = 0; i < 8; i++){
+		var row = Math.floor(i / 4);
+		var col = i % 4;
+		cards[market[i]].drawImg(ctx, col * w, row * h, 150, 200);
+	}
+}
+
 //]]>
 
 </script>
 
 
-<div style="position: absolute; left: 1200px; top: 450px">
+<div style="position: absolute; left: 1000px; top: 250px">
 <p id="display"></p>
 
 </div>
 
-<div style="position: absolute; left: 1200px; top: 550px">
+<div style="position: absolute; left: 1000px; top: 380px">
 <p id="opp"></p>
 
 </div>
 
 <div style="position: relative;">
- <canvas id="field" width="560" height="560" 
+ <canvas id="field" width="640" height="640" 
    style="position: absolute; left: 0px; top: 0px; z-index: 0; border:1px solid #000000;"></canvas>
- <canvas id="field_overlay" width="560" height="560" 
+ <canvas id="field_overlay" width="640" height="640" 
    style="position: absolute; left: 0px; top: 0px; z-index: 1;"></canvas>
 </div>
 
-<canvas id="free_card" height="160" width="120" 
-   style="position: absolute; left: 20px; top: 600px; z-index: 0; border:1px solid #000000;"></canvas>
-
-<canvas id="queue_display" height="160" width="960" 
-   style="position: absolute; left: 200px; top: 600px; z-index: 0; border:1px solid #000000;"></canvas>
-<canvas id="queue_display_2" height="160" width="960" 
-   style="position: absolute; left: 200px; top: 600px; z-index: 1; border:1px solid #000000;"></canvas>
 
 <canvas id="card_display" width="300" height="400" 
-   style="position: absolute; left: 1000px; top: 50px; z-index: 0; border:1px solid #000000;"></canvas>
-<canvas id="card_display_2" width="300" height="400" 
-   style="position: absolute; left: 1000px; top: 50px; z-index: 1; border:1px solid #000000;"></canvas>
-<br>
+   style="position: absolute; left: 680px; top: 50px; z-index: 0; border:1px solid #000000;"></canvas>
 
 <div style="position: relative;">
- <button id="drawBtn" class="button" type="button" onclick="drawAction()" style="position: absolute; left: 600px; top: 450px;">Draw</button>
+ 
 
- <button id="endTurnBtn" class="button"  type="button" onclick="reset()" style="position: absolute; left: 700px; top: 450px;">End Turn</button>
-  <button id="discardBtn" class="button"  type="button" onclick="selectedDiscard()" style="position: absolute; left: 600px; top: 500px;">Discard</button>
- <button id="mulliganBtn" class="button"  type="button" onclick="mulligan()" style="position: absolute; left: 700px; top: 500px;">Mulligan</button>
+ <button id="endTurnBtn" class="button"  type="button" onclick="reset()" style="position: absolute; left: 680px; top: 450px;">End Turn</button>
 
-  <button id="playBtn" class="button"  type="button" onclick="execute()" style="position: absolute; left: 950px; top: 800px;">Play Card</button>
- <button id="queueBtn" class="button"  type="button" onclick="add()" style="position: absolute; left: 950px; top: 850px;">Add Card to Queue</button>
+  <button id="discardBtn" class="button"  type="button" onclick="selectedDiscard(0)" style="position: absolute; left: 680px; top: 500px;">Discard</button>
 
+<button id="undoBtn" class="button"  type="button" onclick="undo()" style="position: absolute; left: 780px; top: 450px;">Undo Placement</button>
+
+<button id="mineBtn" class="button"  type="button" onclick="mine()" style="position: absolute; left: 780px; top: 500px;">Mine</button>
+
+<button id="gainBtn" class="button" type="button" onclick="transfer()" style="position: absolute; left: 680px; top: 550px;">Mineral -> Credit</button>
 
  <canvas id="deck_display" width="150" height="200" 
-   style="position: absolute; left: 1150px; top: 760px; z-index: 1;"></canvas> 
-   <canvas id="discard" width="150" height="200" 
-   style="position: absolute; left: 1350px; top: 760px; z-index: 1;"></canvas> 
+   style="position: absolute; left: 1000px; top: 760px; z-index: 1;"></canvas> 
+  <canvas id="discard" width="150" height="200" 
+   style="position: absolute; left: 1000px; top: 530px; z-index: 1;"></canvas> 
+
+   <canvas id="opp_discard" width="150" height="200" 
+   style="position: absolute; left: 1000px; top: 30px; z-index: 1;"></canvas> 
 </div>
 
 <div style="position: relative; top: 760px;">
@@ -1276,11 +2119,39 @@ socket.on("randomDiscard", function(){
    style="position: absolute; left: 0px; top: 0px; z-index: 0; border:1px solid #000000;"></canvas>
  <canvas id="hand_overlay" width="900" height="200" 
    style="position: absolute; left: 0px; top: 0px; z-index: 1;"></canvas>
+</div>
 
+<div style="position: relative;" id="poly" title="Choose a polyomino to put onto the field">
+		<canvas id="p" width="1050" height="200" style=" position: absolute; left: 0px; top: 0px; z-index: 0"></canvas>
+		<canvas id="p_overlay" width="1050" height="200" style=" position: absolute; left: 0px; top: 0px; z-index: 0"></canvas>
+</div>
+
+<div id="opp_hand" title="Choose a card to discard">
+	<canvas id="o_hand" width="1050" height="200" style=" position: absolute; left: 0px; top: 0px; z-index: 0"></canvas>
+		<canvas id="o_hand_overlay" width="1050" height="200" style=" position: absolute; left: 0px; top: 0px; z-index: 0"></canvas>
+</div>
+
+<div id="discard_display" title="Discard pile"></div>
+<div id="opp_discard_display" title="Discard pile"></div>
+
+<div id="deck" title="Choose a card to put into your hand">
+	<canvas id="o_hand" width="1050" height="200" style=" position: absolute; left: 0px; top: 0px; z-index: 0"></canvas>
+		<canvas id="o_hand_overlay" width="1050" height="200" style=" position: absolute; left: 0px; top: 0px; z-index: 0"></canvas>
 </div>
 
 
+<canvas id="staples" width="600" height="400" style=" position: absolute; left: 1200px; top: 0px; z-index: 0"></canvas>
 
+<canvas id="staples_overlay" width="600" height="400" style=" position: absolute; left: 1200px; top: 0px; z-index: 0"></canvas>
+
+<canvas id="random" width="600" height="400" style=" position: absolute; left: 1200px; top: 500px; z-index: 0"></canvas>
+
+<canvas id="random_overlay" width="600" height="400" style=" position: absolute; left: 1200px; top: 500px; z-index: 0"></canvas>
+
+
+<div id="transcript" style="width: 200px; height: 1000px; position: absolute; left: 1800px; top: 0px; border:1px solid black; overflow: scroll">
+	Transcript for the game: <br>
+</div>
 
 </body>
 </html>
