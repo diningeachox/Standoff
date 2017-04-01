@@ -82,6 +82,7 @@ serv.listen(PORT);
 
 //Store multiple clients
 var SOCKET_LIST = [];
+var partners = [];
 
 var io = require("socket.io")(serv, {});
 io.on("connection", function(socket){
@@ -105,17 +106,22 @@ io.on("connection", function(socket){
 	//Pair automatically when a second client connects
 	if (!pendingPair){
 		pendingPair = socket;
+		partners[socket.id] = null;
 		//Assigns the color yellow to player 1
 		socket.emit("color", {c: "rgb(255, 255, 0)", c2: "rgb(50, 50, 255)", num: "1"});
 		socket.emit("turn", {t : "1"});
 	} else {
 		p1 = pendingPair;
 		p2 = socket;
+
+		//Assign each other as partner sockets
+		partners[pendingPair.id] = socket;
+
 		//Assigns the color (light) blue to player 2
 		p2.emit("color", {c: "rgb(50, 50, 255)", c2: "rgb(255, 255, 0)", num: "2"});
 		
 		pendingPair = null;
-		console.log("Pairing successful!")
+		console.log("Pairing successful! " + p1.id + " is paired with " + p2.id + "!");
 		//p2.emit("start");
 
 		//Tell p1 to randomize the draft market
@@ -135,190 +141,195 @@ io.on("connection", function(socket){
 	//Delete client on disconnect
 	socket.on("disconnect", function(){
 		console.log(socket.id + " has disconnected");
+		
+		//Delete pair of partners
+		partners[socket.id] = null;
 		delete SOCKET_LIST[socket.id];
 	});
 
-	//If two clients are connected and paired
-	if (p1 != null && p2 != null){
-		//Tell players to start the game
-		//io.sockets.emit("start");
-		
-
-		//Exchange public info
-		p1.on("status", function(data){
-			//Send location of placement to p2
-			p2.emit("status", {
-				actions: data.actions, placements: data.placements, 
-				budget: data.budget, handsize: data.handsize
+	//Iterate over all pairings
+	for (var id in partners){
+		//If two clients are connected and paired
+		if (partners.hasOwnProperty(id) && partners[id] != null){
+			p1 = SOCKET_LIST[id];
+			p2 = partners[id];
+			console.log(p1.id + ", " + p2.id);
+			//Exchange public info
+			p1.on("status", function(data){
+				//Send location of placement to p2
+				p2.emit("status", {
+					actions: data.actions, placements: data.placements, 
+					budget: data.budget, handsize: data.handsize
+				});
 			});
-		});
-		p2.on("status", function(data){
-			//Send location of placement to p2
-			p1.emit("status", {
-				actions: data.actions, placements: data.placements, 
-				budget: data.budget, handsize: data.handsize
+			p2.on("status", function(data){
+				//Send location of placement to p2
+				p1.emit("status", {
+					actions: data.actions, placements: data.placements, 
+					budget: data.budget, handsize: data.handsize
+				});
 			});
-		});
 
-		//Communicate placement between clients
-		p1.on("placement", function(data){
-			//Send location of placement to p2
-			p2.emit("placement", {
-				xcoord: data.xcoord, ycoord: data.ycoord, sh: data.sh, color: data.color
+			//Communicate placement between clients
+			p1.on("placement", function(data){
+				//Send location of placement to p2
+				p2.emit("placement", {
+					xcoord: data.xcoord, ycoord: data.ycoord, sh: data.sh, color: data.color
+				});
 			});
-		});
-		p2.on("placement", function(data){
-			//Send location of placement to p1
-			p1.emit("placement", {
-				xcoord: data.xcoord, ycoord: data.ycoord, sh: data.sh, color: data.color
+			p2.on("placement", function(data){
+				//Send location of placement to p1
+				p1.emit("placement", {
+					xcoord: data.xcoord, ycoord: data.ycoord, sh: data.sh, color: data.color
+				});
 			});
-		});
 
-		//Placement of improvements
-		//Communicate placement between clients
-		p1.on("improvement", function(data){
-			//Send location of placement to p2
-			p2.emit("improvement", {
-				xcoord: data.xcoord, ycoord: data.ycoord, sh: data.sh,
-				n: data.n
+			//Placement of improvements
+			//Communicate placement between clients
+			p1.on("improvement", function(data){
+				//Send location of placement to p2
+				p2.emit("improvement", {
+					xcoord: data.xcoord, ycoord: data.ycoord, sh: data.sh,
+					n: data.n
+				});
 			});
-		});
-		p2.on("improvement", function(data){
-			//Send location of placement to p1
-			p1.emit("improvement", {
-				xcoord: data.xcoord, ycoord: data.ycoord, sh: data.sh,
-				n: data.n
+			p2.on("improvement", function(data){
+				//Send location of placement to p1
+				p1.emit("improvement", {
+					xcoord: data.xcoord, ycoord: data.ycoord, sh: data.sh,
+					n: data.n
+				});
 			});
-		});
 
-		//Communicate addons between clients
-		p1.on("addon", function(data){
-			//Send location of placement to p2
-			p2.emit("addon", {
-				xcoord: data.xcoord, ycoord: data.ycoord, type: data.type
+			//Communicate addons between clients
+			p1.on("addon", function(data){
+				//Send location of placement to p2
+				p2.emit("addon", {
+					xcoord: data.xcoord, ycoord: data.ycoord, type: data.type
+				});
 			});
-		});
-		p2.on("addon", function(data){
-			//Send location of placement to p1
-			p1.emit("addon", {
-				xcoord: data.xcoord, ycoord: data.ycoord, type: data.type
+			p2.on("addon", function(data){
+				//Send location of placement to p1
+				p1.emit("addon", {
+					xcoord: data.xcoord, ycoord: data.ycoord, type: data.type
+				});
 			});
-		});
 
-		//Communicate addons between clients
-		p1.on("addForcefield", function(data){
-			//Send location of placement to p2
-			p2.emit("addForcefield", {
-				xcoord: data.xcoord, ycoord: data.ycoord, player: data.player
+			//Communicate addons between clients
+			p1.on("addForcefield", function(data){
+				//Send location of placement to p2
+				p2.emit("addForcefield", {
+					xcoord: data.xcoord, ycoord: data.ycoord, player: data.player
+				});
 			});
-		});
-		p2.on("addForcefield", function(data){
-			//Send location of placement to p1
-			p1.emit("addForcefield", {
-				xcoord: data.xcoord, ycoord: data.ycoord, player: data.player
+			p2.on("addForcefield", function(data){
+				//Send location of placement to p1
+				p1.emit("addForcefield", {
+					xcoord: data.xcoord, ycoord: data.ycoord, player: data.player
+				});
 			});
-		});
 
-		//Communicate addons between clients
-		p1.on("clearForcefield", function(data){
-			//Send location of placement to p2
-			p2.emit("clearForcefield", {
-				xcoord: data.xcoord, ycoord: data.ycoord, player: data.player
+			//Communicate addons between clients
+			p1.on("clearForcefield", function(data){
+				//Send location of placement to p2
+				p2.emit("clearForcefield", {
+					xcoord: data.xcoord, ycoord: data.ycoord, player: data.player
+				});
 			});
-		});
-		p2.on("clearForcefield", function(data){
-			//Send location of placement to p1
-			p1.emit("clearForcefield", {
-				xcoord: data.xcoord, ycoord: data.ycoord, player: data.player
+			p2.on("clearForcefield", function(data){
+				//Send location of placement to p1
+				p1.emit("clearForcefield", {
+					xcoord: data.xcoord, ycoord: data.ycoord, player: data.player
+				});
 			});
-		});
 
-		//Discard
-		p1.on("randomDiscard", function(){
-			//Send location of placement to p2
-			p2.emit("randomDiscard");
-		});
-		p2.on("randomDiscard", function(){
-			//Send location of placement to p2
-			p1.emit("randomDiscard");
-		});
+			//Discard
+			p1.on("randomDiscard", function(){
+				//Send location of placement to p2
+				p2.emit("randomDiscard");
+			});
+			p2.on("randomDiscard", function(){
+				//Send location of placement to p2
+				p1.emit("randomDiscard");
+			});
 
-		//Targetted discard
-		p1.on("targetDiscard", function(data){
-			//Send location of placement to p2
-			p2.emit("targetDiscard", {ind: data.ind});
-		});
-		p2.on("targetDiscard", function(data){
-			//Send location of placement to p2
-			p1.emit("targetDiscard", {ind: data.ind});
-		});
+			//Targetted discard
+			p1.on("targetDiscard", function(data){
+				//Send location of placement to p2
+				p2.emit("targetDiscard", {ind: data.ind});
+			});
+			p2.on("targetDiscard", function(data){
+				//Send location of placement to p2
+				p1.emit("targetDiscard", {ind: data.ind});
+			});
 
-		//Hand info
-		p1.on("hand", function(data){
-			//Send location of placement to p2
-			p2.emit("hand", data);
-		});
-		p2.on("hand", function(data){
-			//Send location of placement to p2
-			p1.emit("hand", data);
-		});
+			//Hand info
+			p1.on("hand", function(data){
+				//Send location of placement to p2
+				p2.emit("hand", data);
+			});
+			p2.on("hand", function(data){
+				//Send location of placement to p2
+				p1.emit("hand", data);
+			});
 
-		//Start upkeep
-		p1.on("upkeep", function(){
-			p2.emit("upkeep");
-		});
-		p2.on("upkeep", function(){
-			p1.emit("upkeep");
-		});
+			//Start upkeep
+			p1.on("upkeep", function(){
+				p2.emit("upkeep");
+			});
+			p2.on("upkeep", function(){
+				p1.emit("upkeep");
+			});
 
-		//Add a trojan horse card
-		p1.on("trojan", function(){
-			p2.emit("trojan");
-		});
-		p2.on("trojan", function(){
-			p1.emit("trojan");
-		});
+			//Add a trojan horse card
+			p1.on("trojan", function(){
+				p2.emit("trojan");
+			});
+			p2.on("trojan", function(){
+				p1.emit("trojan");
+			});
 
-		//Keep track of trojan horse gifts
-		p1.on("horse", function(){
-			p2.emit("horse");
-		});
-		p2.on("horse", function(){
-			p1.emit("horse");
-		});
-		
-		//Write transcript
-		p1.on("event", function(data){
-			p2.emit("event", data);
-		});
-		p2.on("event", function(data){
-			p1.emit("event", data);
-		});
+			//Keep track of trojan horse gifts
+			p1.on("horse", function(){
+				p2.emit("horse");
+			});
+			p2.on("horse", function(){
+				p1.emit("horse");
+			});
+			
+			//Write transcript
+			p1.on("event", function(data){
+				p2.emit("event", data);
+			});
+			p2.on("event", function(data){
+				p1.emit("event", data);
+			});
 
-		//Update market
-		p1.on("market", function(data){
-			p2.emit("market", data);
-		});
-		p2.on("market", function(data){
-			p1.emit("market", data);
-		});
-		
-		//Update discard piles
-		p1.on("discard", function(data){
-			p2.emit("discard", data);
-		});
-		p2.on("discard", function(){
-			p1.emit("discard", data);
-		});
+			//Update market
+			p1.on("market", function(data){
+				p2.emit("market", data);
+			});
+			p2.on("market", function(data){
+				p1.emit("market", data);
+			});
+			
+			//Update discard piles
+			p1.on("discard", function(data){
+				p2.emit("discard", data);
+			});
+			p2.on("discard", function(data){
+				p1.emit("discard", data);
+			});
 
-		//Update  quantity piles
-		p1.on("quantity", function(data){
-			p2.emit("quantity", data);
-		});
-		p2.on("quantity", function(){
-			p1.emit("quantity", data);
-		});
+			//Update  quantity piles
+			p1.on("quantity", function(data){
+				p2.emit("quantity", data);
+			});
+			p2.on("quantity", function(){
+				p1.emit("quantity", data);
+			});
 
+		}
 	}
 
 /*
