@@ -20,7 +20,7 @@ var arr = ["images/1.png", "images/2.png", "images/3.png", "images/4.png",
 "images/S.png", "images/Z.png", "images/I.png",
 "images/1p.png", "images/2p.png", "images/3p.png", "images/4p.png", 
 "images/initiative.png", "images/trojan.png", "images/horse.png", "images/emp.png",
-"images/early_access.png", "images/refinery.png",
+"images/early_access.png", "images/refinery.png", "images/disposal.png",
 "images/steve.png", "images/linda.png", "images/bart.png", "images/zelda.png", 
 "images/mineral.gif", "images/ruby.png"
 ];
@@ -63,10 +63,6 @@ var aggro, midrange, combo, dup, hacker;
 //Cards that are in every draft
 var staples = [27, 28, 29, 30, 4, 5, 6, 36];
 var quantity = [18, 18, 18, 18, 30, 24, 16, 16];
-//Cards that are randomized for each draft
-var cardlist = [10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 31, 32];
-//Price of buying
-var costs = [1, 2, 3, 4, 0, 2, 5, 0, 2, 5, 3, 4, 3, 3, 3, 3, 3, 4, 3, 4, 5, 4, 2];
 
 //Card list
 var cards = [
@@ -106,7 +102,8 @@ var cards = [
 	new Card(33, [""], "Horse", 0, new Vector(0, 0), new Vector(0, 0)),
 	new Card(34, ["emp()"], "EMP", 1, new Vector(2, 0), new Vector(2, 2)),
 	new Card(35, ["tutor()"], "Early Access", 1, new Vector(1, 0), new Vector(3, 1)),
-	new Card(36, ["refinery()"], "Refinery", 1, new Vector(2, 0), new Vector(2, 0))
+	new Card(36, ["refinery()"], "Refinery", 1, new Vector(2, 0), new Vector(2, 0)),
+	new Card(37, ["disposal()"], "Disposal", 1, new Vector(2, 0), new Vector(2, 0))
 ];
 
 // 7 1C's and 3 1P's

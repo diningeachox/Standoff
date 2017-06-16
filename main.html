@@ -8,6 +8,8 @@
 </head>
 <body>
 <script type="text/javascript" src="decks.js"></script> 
+<script type="text/javascript" src="selection.js"></script>
+<script type="text/javascript" src="dialog.js"></script>  
 
 <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.12.4/jquery.min.js">
 
@@ -93,6 +95,8 @@ socket.on("upkeep", function(){
 
 //On getting signal from server to start, call all game functions
 socket.on("start", function(){	
+
+
 	initialize_vars();	
 
 	//Disable buttons if not on turn
@@ -130,6 +134,8 @@ socket.on("start", function(){
 	initialize_hand(); 
 	initialize_field();
 	initialize_deck();
+
+	
 
 	//Get market info from p1
 	if (turn == 0){
@@ -213,87 +219,11 @@ function displayCard(obj){
 	ctx.clearRect(0, 0, canvas.width, canvas.height);
 	
 		
-	obj.drawImg(ctx, 0, 0, 300, 400);
+	obj.drawImg(ctx, 0, 0, canvas.width, canvas.height);
 	
 }
 
-function Selection(event, overlay){
-	this.overlay = overlay;
-	this.event = event;
-	this.cardWidth = 150;
-	this.cardHeight = 200;
-	this.selected = -1;
 
-}
-
-Selection.prototype.index = function(){
-	var rect = this.overlay.getBoundingClientRect();
-	var ctx = this.overlay.getContext("2d");
-
-	//Get relative position of cursor
-	var x = event.pageX - rect.left;
-	var y = event.pageY - rect.top;
-	var col = Math.floor(x / cardWidth);	
-	var row = Math.floor(y / cardHeight);
-
-	var num = row * 4 + col;
-	return num;
-}
-
-Selection.prototype.draw = function(t, length){
-	var rect = this.overlay.getBoundingClientRect();
-	var ctx = this.overlay.getContext("2d");
-
-	ctx.clearRect(0, 0, this.overlay.width, this.overlay.height);
-	//Get relative position of cursor
-	var x = event.pageX + (window.pageXOffset || document.body.scrollLeft) - rect.left;
-	var y = event.pageY + document.body.scrollTop - rect.top;
-	var col = Math.floor(x / cardWidth);	
-	var row = Math.floor(y / cardHeight);
-
-	var num;
-	if (t == 2){
-	    num = row * 4 + col;
-	} else {
-		num = col;
-	}
-	if (num < length){
-		//If no card is yet selected, select that
-		if (this.selected == -1){
-			this.selected = num;
-			
-			ctx.strokeStyle = "rgb(100, 255, 100)";
-			ctx.lineWidth = 5;
-			ctx.beginPath();
-			ctx.moveTo((col + 1) * this.cardWidth, row * this.cardHeight);
-			ctx.lineTo(col * this.cardWidth, row * this.cardHeight);
-			ctx.lineTo(col * this.cardWidth, row * this.cardHeight + 200);
-			ctx.lineTo((col + 1) * this.cardWidth, row * this.cardHeight + 200);
-			ctx.lineTo((col + 1) * this.cardWidth, row * this.cardHeight);
-			ctx.closePath();
-			ctx.stroke();
-		} else {
-			if (num == this.selected){
-				this.selected = -1;
-				return num;
-			} else {
-				this.selected = num;
-				ctx.strokeStyle = "rgb(100, 255, 100)";
-				ctx.lineWidth = 5;
-				ctx.beginPath();
-				ctx.moveTo((col + 1) * this.cardWidth, row * this.cardHeight);
-				ctx.lineTo(col * this.cardWidth, row * this.cardHeight);
-				ctx.lineTo(col * this.cardWidth, row * this.cardHeight + 200);
-				ctx.lineTo((col + 1) * this.cardWidth, row * this.cardHeight + 200);
-				ctx.lineTo((col + 1) * this.cardWidth, row * this.cardHeight);
-				ctx.closePath();
-				ctx.stroke();
-			}
-		}
-		
-	}	
-	return -1;
-}
 
 function initialize_market(){
 	var overlay = document.getElementById("random_overlay");
@@ -454,7 +384,6 @@ function initialize_vars(){
 	deck = shuffle(deck);
 	//Draw 5
 	draw(5, 0);
-	
 }
 
 //Check to see if end of game is triggered, if so check to see who has won
@@ -614,10 +543,17 @@ function tutor(){
 	  } );
 }
 
+function disposal(){
+	var newthing = new Box("#opp_hand", 3, hand, num);
+	newthing.createBox("#opp_hand", 3, hand, "Choose up to 3 cards to trash", update);
+	
+}
+
 //Look through the discard pile
 function seeDiscard(element, arr){
 	if (arr.length > 0){
 		$( function() {
+			var canvas = document.createElement("canvas");
 			//Change title to state number of cards in discard
 			var title = $(element).attr('title');
 			$(element).attr('title', title + ': ' + arr.length + ' cards');
@@ -639,7 +575,7 @@ function seeDiscard(element, arr){
 			  ]
 			});
 			//Create canvas for display
-			var canvas = document.createElement("canvas");
+			
 			canvas.width = arr.length * 150;
 			canvas.height = 200;
 			canvas.style.left = "0px";
@@ -956,7 +892,7 @@ function tax(a, n){
 
 //Discard at end of turn
 function selectedDiscard(t){
-	console.log(selected[0]);
+	//console.log(selected[0]);
 	if (t == 1){
 	//Can only discard after turn ends and with you have more than 7 cards in hand
 		if (turn == 2 && hand.length > 5){
@@ -1004,7 +940,6 @@ function selectedDiscard(t){
 					alert("You cannot discard the Horse card as an action!");
 				}
 				actions -= 1;
-				console.log(actions);
 				sendStatus();
 				showStatus();
 				
@@ -1022,6 +957,13 @@ function selectedDiscard(t){
 	var canvas = document.getElementById("hand_overlay");
 	var ctx = canvas.getContext("2d");
 	ctx.clearRect(0, 0, canvas.width, canvas.height);
+}
+
+function update(text){
+	drawHand();
+	sendStatus();
+	showStatus();
+	updateScroll(text);
 }
 
 //Discard a particular card from own hand 
@@ -1515,9 +1457,9 @@ function showCard(event, arr){
 	var y = event.pageY;
 	var w = Math.min((900 / arr.length), 150);
 	var index = Math.floor(x / w);
+
 	if (index < arr.length){
-		
-		arr[index].drawImg(ctx, 0, 0, 300, 400);
+		arr[index].drawImg(ctx, 0, 0, canvas.width, canvas.height);
 	}
 }
 
@@ -1585,22 +1527,20 @@ function execute(arr, p){
 	if (selected[p] > -1){
 		//Clear tempPacket first
 		tempPacket = null;
-
+		var temp;
 		obj = arr[selected[p]];
+		if (p == 0){
+			temp = hand.splice(selected[0], 1)[0];				
+		}
 		if (obj.resolve(free + 1) == 1){
+			var card = arr[selected[p]];
 			//Remove card from hand
 			
-
-			var card = arr[selected[p]];
-			
-			if (p == 0){
-				hand.splice(selected[0], 1)[0];				
-			}
-
 			//When card is finished resolving
 			if (resolving == 0){
 				//discard the resolved card
 				if (p == 0){
+					card = obj;
 					//Update transcript
 					var text ="<strong> Player " + num + "</strong> plays <strong>" + card.name + "<strong>. <br>";
 					updateScroll(text);
@@ -1616,11 +1556,13 @@ function execute(arr, p){
 					tempCard = card;
 				}
 			}
-			
-			
 			//Redraw Hand
 			drawHand();
 			drawDiscard(discard[discard.length - 1]);
+		} else {
+			selected[p] = -1;
+			//Put temp card back in hand
+			hand.push(temp);
 		}
 		 
 	}
@@ -1632,7 +1574,7 @@ function execute(arr, p){
 	var canvas = document.getElementById("hand_overlay");
 	var ctx = canvas.getContext("2d");
 	ctx.clearRect(0, 0, canvas.width, canvas.height);
-
+	drawHand();
 	showStatus();
 	sendStatus();
 }
@@ -1699,13 +1641,13 @@ function drawField(){
  			}
  			//Minerals
  			if (effects_tile.includes(4)){
- 				var image = images[41];
+ 				var image = images[images.length - 2];
  				ctx.drawImage(image, (j - 3) * blockLength, (i - 3) * blockLength, blockLength, blockLength);
 				
  			}
  			//Big minerals
  			if (effects_tile.includes(5)){
- 				var image = images[42];
+ 				var image = images[images.length - 1];
  				ctx.drawImage(image, (j - 3) * blockLength, (i - 3) * blockLength, blockLength, blockLength);
 				
  			}
@@ -2089,8 +2031,8 @@ function drawMarket(){
 </div>
 
 
-<canvas id="card_display" width="300" height="400" 
-   style="position: absolute; left: 680px; top: 50px; z-index: 0; border:1px solid #000000;"></canvas>
+<canvas id="card_display" width="300" height="430" 
+   style="position: absolute; left: 680px; top: 20px; z-index: 0; border:1px solid #000000;"></canvas>
 
 <div style="position: relative;">
  
@@ -2130,6 +2072,8 @@ function drawMarket(){
 	<canvas id="o_hand" width="1050" height="200" style=" position: absolute; left: 0px; top: 0px; z-index: 0"></canvas>
 		<canvas id="o_hand_overlay" width="1050" height="200" style=" position: absolute; left: 0px; top: 0px; z-index: 0"></canvas>
 </div>
+
+
 
 <div id="discard_display" title="Discard pile"></div>
 <div id="opp_discard_display" title="Discard pile"></div>

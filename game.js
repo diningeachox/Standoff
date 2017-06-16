@@ -8,6 +8,7 @@ var app = express();
 var serv = require("http").Server(app);
 
 
+
 //Variable used to keep track of automatic pairing
 var pendingPair = null;
 var p1 = null;
@@ -94,7 +95,7 @@ io.on("connection", function(socket){
 	console.log(socket.id + "has connected");
 
 	//Cards that are randomized for each draft
-	var cardlist = [10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 31, 32];
+	var cardlist = [10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 31, 32, 35, 37];
 	//create market
 	for (i = 0; i < cardlist.length; i++){
 		for (j = 0; j < 8; j++){
