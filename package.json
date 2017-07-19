@@ -3,6 +3,9 @@
   "version": "1.0.0",
   "description": "Standoff the card game",
   "main": "game.js",
+  "engines": {
+    "node": "6.11.1"
+  },
   "scripts": {
     "start": "node game.js",
     "deploy": "gcloud app deploy"
