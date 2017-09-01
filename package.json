@@ -7,7 +7,7 @@
     "node": "6.11.1"
   },
   "scripts": {
-    "start": "node game.js",
+    "start": "node server.js",
     "deploy": "gcloud app deploy"
   },
   "dependencies": {
