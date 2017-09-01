@@ -1,13 +1,40 @@
 <!DOCTYPE html>
 <html>
 <head>
-	<title>Standoff</title>
-</head>
-
-
-
-<body onLoad="drawCards()">
-<script src="https://cdn.socket.io/socket.io-1.4.5.js"></script>
+	<title>Standoff Server</title>
+	<style>
+	body {
+	  padding: 20px;
+	}
+	button {
+	  margin-top: 20px;
+	  line-height: 60px;
+	  font-weight: bold;
+	  padding: 0 40px;
+	  background: green;
+	  border: none;
+	}
+	button:hover {
+	  background: lightgreen;
+	}
+	table {
+		border: 1px solid black;
+  		border-collapse: collapse;
+	}
+	tr {
+		height: 100px;
+	}
+	td {
+		font-size: 40px;
+		font-weight: bold;
+		width: 400px;
+		text-align: center
+	}
+	textarea { 
+		font-size: 18px; 
+	}
+	</style>
+	<script src="https://cdn.socket.io/socket.io-1.4.5.js"></script>
 <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.12.4/jquery.min.js"></script>
 
 
@@ -16,155 +43,30 @@
   <script src="https://code.jquery.com/jquery-1.12.4.js"></script>
   <script src="https://code.jquery.com/ui/1.12.1/jquery-ui.js"></script>
 
+<script type="text/javascript" src="lobby.js"></script> 
   <script type="text/javascript" src="decks.js"></script> 
+  <script type="text/javascript" src="game.js"></script> 
 
-<script>
-var deck = [];
-var selected = -1;
-var cardlist = [27, 28, 29, 30, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 31, 32];
-var costs = [1, 2, 3, 4, 0, 2, 5, 0, 2, 5, 3, 4, 3, 3, 3, 3, 3, 4, 3, 4, 5, 4];
-
-function delSpec(node){    
-    r=node.parentNode.parentNode;
-    var oldCost = parseInt(document.getElementById('cost').textContent);
-    var cost = parseInt(r.cells[1].textContent);
-    //Change total cost
-	document.getElementById('cost').textContent = (oldCost - cost); 
-
-    r.parentNode.removeChild(r);
-}
-
-function drawCards(){
-
-	var canvas = document.getElementById("deck_editor");
-	var overlay = document.getElementById("deck_editor_overlay");
-	var ctx = canvas.getContext("2d");
-	var w = 150;
-	var h = 200;
-	//All cards actually used in deck construction
-	
-	for (i = 0; i < cardlist.length; i++){
-		var row = Math.floor(i / 4);
-		var col = i % 4;
-		cards[cardlist[i]].drawImg(ctx, col * w, row * h, 150, 200);
-	}
-	var offset = $('#editor').offset();
-	overlay.addEventListener("mousedown", 
-		function(event){
-			ctx = overlay.getContext("2d");
-			ctx.clearRect(0, 0, canvas.width, canvas.height);
-			//Get relative position of cursor
-			var x = event.pageX - offset.left;
-			var y = event.pageY - offset.top;
-			var col = Math.floor(x / w);	
-			var row = Math.floor(y / h);
-
-			var num = row * 4 + col;
-			
-			if (num < cardlist.length){
-				//If no card is yet selected, select that
-				if (selected == -1){
-					selected = num;
-					
-					ctx.strokeStyle = "rgb(100, 255, 100)";
-					ctx.lineWidth = 5;
-					ctx.beginPath();
-					ctx.moveTo((col + 1) * w, row * h);
-					ctx.lineTo(col * w, row * h);
-					ctx.lineTo(col * w, row * h + 200);
-					ctx.lineTo((col + 1) * w, row * h + 200);
-					ctx.lineTo((col + 1) * w, row * h);
-					ctx.closePath();
-					ctx.stroke();
-				} else {
-					selected = -1;
-					//Otherwise it's double-click so add the card
-					
-					var oldCost = parseInt(document.getElementById('cost').textContent);
-
-					//Only add card if deckbuilding cost does not exceed 100
-					if (oldCost <=100){
-						var tableRef = document.getElementById('myDeck').getElementsByTagName('tbody')[0];
-
-						// Insert a row in the table at the last row
-						var newRow   = tableRef.insertRow(tableRef.rows.length - 1);
-						
-
-						// Insert a cell in the row at index 0
-						var nameCell  = newRow.insertCell(0);
-
-						// Append a text node to the cell
-						var name  = document.createTextNode(cards[cardlist[num]].name);
-						nameCell.appendChild(name);
-
-						// Insert a cell in the row at index 0
-						var costCell  = newRow.insertCell(1);
-
-						var del = newRow.insertCell(2);
-						del.innerHTML='<button   class="del_img" onClick="delSpec(this)">Delete</button></div>';
-
-						// Append a text node to the cell
-						var cost  = document.createTextNode(costs[num]);
-						costCell.appendChild(cost);
-
-						//Change total cost
-						document.getElementById('cost').textContent = (oldCost + costs[num]); 
-					} else {
-						alert("Your deckbuilding costs have exceeded 100!");
-					}
-
-					
-				}
-				
-			}	
-			
-		}, 
-	false);
-
-	//Add mouse listener
-
-}
-</script>
-
-<span style="font-size: 24px;">
-<form action="" method="post">
-	Choose deck archetype: <br>
-  <input type="radio" name="deck" value="0"> Duplicate <br>
-  <input type="radio" name="deck" value="1"> Aggro <br>
-  <input type="radio" name="deck" value="2"> Hacker <br>
-  <input type="radio" name="deck" value="3"> Artillery <br>
-  <input type="radio" name="deck" value="4"> Fundraiser Combo <br>
-  <input type = "submit" name="submit" value="submit">
-</form>
-</span>
-
-	<table border="1" id="myDeck" style="position: absolute; left: 600px; top: 0px; width: 200px; font-size: 14px;">
-		<thead>
-			<tr>
-				<th>
-					Card Name
-				</th>
-				<th>
-					Deckbuilding Cost
-				</th>
-			</tr>
-		</thead>
-		<tbody>
-			<tr>
-				<td> </td>
-				<td>
-					<span id="cost">0</span>
-				</td>
-			</tr>
-		</tbody>
-	</table>
+   <script type="text/javascript" src="dialog.js"></script> 
+</head>
 
 
-<div id="editor" style="width: 600px; height: 1200px; position: absolute; left: 800px; top: 0px; border:1px solid black; overflow: hidden">
-	<canvas id="deck_editor" width="600" height="1200" style=" position: absolute; left: 0px; top: 0px; z-index: 0"></canvas>
-		<canvas id="deck_editor_overlay" width="600" height="1200" style=" position: absolute; left: 0px; top: 0px; z-index: 0"></canvas>
+
+<body>
+
+  <div id="wrapper">
+
+
+
+
+<button type="button" onClick="createRoom()">New Room (2 Players)</button>
+
+<table id="room_table"></table>
+
 </div>
 
-
 </body>
+<script>
+
+</script>
 </html>

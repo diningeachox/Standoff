@@ -27,6 +27,7 @@ Box.prototype.createBox = function(canv, n, arr, title, display){
 	var canvas = document.createElement("canvas");
 	var overlay = document.createElement("canvas");
 	var sel = null;
+	var num = this.num;
 	var offset = $(canv).offset();
 	
 	canvas.width = arr.length * 150;
@@ -40,6 +41,7 @@ Box.prototype.createBox = function(canv, n, arr, title, display){
 	overlay.style.left = "0px";
 	 	overlay.style.top = "0px";
 	overlay.style.position = "absolute";
+
 	//add mouse listeners
 	overlay.addEventListener("mousedown", 
 		function(event){
@@ -69,7 +71,7 @@ Box.prototype.createBox = function(canv, n, arr, title, display){
 	      		//Then remove one by one
 	      		for (var i = 0; i < cards.length; i++){
 					var a = arr.splice(cards[i], 1);
-					var text ="<strong> Player " + this.num + "</strong> trashes <strong>" + a[0].name + "<strong>. <br>";
+					var text ="<strong> Player " + num + "</strong> trashes <strong>" + a[0].name + "<strong>. <br>";
 					display(text);
 				}
 	      		
@@ -105,7 +107,12 @@ function Selection(event, overlay){
 	this.cardWidth = 150;
 	this.cardHeight = 200;
 	this.selected = -1;
+	this.maxCards = 6; //Width of the hand canvas
 
+}
+
+Selection.prototype.reset = function(){
+	this.selected = -1;
 }
 
 Selection.prototype.index = function(){
@@ -123,6 +130,10 @@ Selection.prototype.index = function(){
 }
 
 Selection.prototype.draw = function(t, length){
+	//Set max cards in a row
+	if (t == 2){
+		this.maxCards = 4;
+	} 
 	var rect = this.overlay.getBoundingClientRect();
 	var ctx = this.overlay.getContext("2d");
 
@@ -130,7 +141,8 @@ Selection.prototype.draw = function(t, length){
 	//Get relative position of cursor
 	var x = event.pageX + (window.pageXOffset || document.body.scrollLeft) - rect.left;
 	var y = event.pageY + document.body.scrollTop - rect.top;
-	var col = Math.floor(x / cardWidth);	
+	var width = Math.min(this.cardWidth, this.maxCards  * this.cardWidth / (length / 2));
+	var col = Math.floor(x / width);	
 	var row = Math.floor(y / cardHeight);
 
 	var num;
@@ -140,18 +152,19 @@ Selection.prototype.draw = function(t, length){
 		num = col;
 	}
 	if (num < length){
+
 		//If no card is yet selected, select that
 		if (this.selected == -1){
 			this.selected = num;
 			
-			ctx.strokeStyle = "rgb(100, 255, 100)";
-			ctx.lineWidth = 5;
+			ctx.strokeStyle = "rgb(255, 255, 130)";
+			ctx.lineWidth = 8;
 			ctx.beginPath();
-			ctx.moveTo((col + 1) * this.cardWidth, row * this.cardHeight);
-			ctx.lineTo(col * this.cardWidth, row * this.cardHeight);
-			ctx.lineTo(col * this.cardWidth, row * this.cardHeight + 200);
-			ctx.lineTo((col + 1) * this.cardWidth, row * this.cardHeight + 200);
-			ctx.lineTo((col + 1) * this.cardWidth, row * this.cardHeight);
+			ctx.moveTo((col + 1) * width, row * this.cardHeight);
+			ctx.lineTo(col * width, row * this.cardHeight);
+			ctx.lineTo(col * width, row * this.cardHeight + 200);
+			ctx.lineTo((col + 1) * width, row * this.cardHeight + 200);
+			ctx.lineTo((col + 1) * width, row * this.cardHeight);
 			ctx.closePath();
 			ctx.stroke();
 		} else {
@@ -160,14 +173,14 @@ Selection.prototype.draw = function(t, length){
 				return num;
 			} else {
 				this.selected = num;
-				ctx.strokeStyle = "rgb(100, 255, 100)";
-				ctx.lineWidth = 5;
+				ctx.strokeStyle = "rgb(255, 255, 130)";
+				ctx.lineWidth = 8;
 				ctx.beginPath();
-				ctx.moveTo((col + 1) * this.cardWidth, row * this.cardHeight);
-				ctx.lineTo(col * this.cardWidth, row * this.cardHeight);
-				ctx.lineTo(col * this.cardWidth, row * this.cardHeight + 200);
-				ctx.lineTo((col + 1) * this.cardWidth, row * this.cardHeight + 200);
-				ctx.lineTo((col + 1) * this.cardWidth, row * this.cardHeight);
+				ctx.moveTo((col + 1) * width, row * this.cardHeight);
+				ctx.lineTo(col * width, row * this.cardHeight);
+				ctx.lineTo(col * width, row * this.cardHeight + 200);
+				ctx.lineTo((col + 1) * width, row * this.cardHeight + 200);
+				ctx.lineTo((col + 1) * width, row * this.cardHeight);
 				ctx.closePath();
 				ctx.stroke();
 			}
@@ -201,8 +214,8 @@ MultiSelection.prototype.draw = function(){
 	ctx.clearRect(0, 0, this.overlay.width, this.overlay.height);
 	for (i = 0; i < this.selected.length; i++){
 		var num = this.selected[i]; //Index/position of card
-		ctx.strokeStyle = "rgb(100, 255, 100)";
-		ctx.lineWidth = 5;
+		ctx.strokeStyle = "rgb(255, 255, 130)";
+		ctx.lineWidth = 8;
 		ctx.beginPath();
 		ctx.moveTo((num + 1) * this.cardWidth, 0);
 		ctx.lineTo(num * this.cardWidth, 0);

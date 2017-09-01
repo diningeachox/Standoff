@@ -1,6 +1,9 @@
 //Game parameters
 var length = 16;
 var width = 16;
+var blockLength = 40;
+var cardWidth = 150;
+var cardHeight = 200;
 
 var lastAction = null; 
 
@@ -66,8 +69,8 @@ var quantity = [18, 18, 18, 18, 30, 24, 16, 16];
 
 //Card list
 var cards = [
-	new Card(0, ["createPacket('1', 1)"], "", 0, new Vector(0, 0), new Vector(0, 0)),
-	new Card(1, ["createPacket('1010', 1)"], "", 0, new Vector(0, 0), new Vector(0, 0)),
+	new Card(0, ["createPacket('1', 1)"], "", 1, new Vector(0, 0), new Vector(0, 0)),
+	new Card(1, ["createPacket('1010', 1)"], "", 1, new Vector(0, 0), new Vector(0, 0)),
 	new Card(2, ["createPacket('100100100', 1)"], "", 0, new Vector(0, 0), new Vector(0, 0)),
 	new Card(3, ["createPacket('1101', 1)"], "", 0, new Vector(0, 0), new Vector(0, 0)),
 	new Card(4, ["gain(1)"], "1C", 0, new Vector(0, 0), new Vector(0, 0)),
@@ -106,10 +109,14 @@ var cards = [
 	new Card(37, ["disposal()"], "Disposal", 1, new Vector(2, 0), new Vector(2, 0))
 ];
 
-// 7 1C's and 3 1P's
+// 6 1C's and 4 1P's is the starting deck for all players
 var starter = [cards[4], cards[4], cards[4], cards[4], cards[4], cards[4], cards[27],
 				cards[27], cards[27], cards[27]];
 
+/*
+var starter = [cards[4], cards[4], cards[4], cards[4], cards[4], cards[4], cards[37],
+				cards[37], cards[37], cards[37]];
+*/
 
 var poly = [[cards[0]],
 	[cards[1]],
