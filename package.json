@@ -2,7 +2,7 @@
   "name": "standoff",
   "version": "1.0.0",
   "description": "Standoff the card game",
-  "main": "game.js",
+  "main": "server.js",
   "engines": {
     "node": "6.11.1"
   },
