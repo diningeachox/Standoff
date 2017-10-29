@@ -3,45 +3,29 @@
 /*Dialog box for when a player needs to select
 cards out of a hand, deck, or discard pile
 */
-function Box(canv, n, arr, num){
-	this.canv = canv;
-	this.n = n;
-	this.sel = null;
-	this.cardWidth = 150;
-	this.cardHeight = 200;
-	this.cards = [];
-	this.num = num;
-	//this.display = display;
-
-	
-}
-
-Box.prototype.getCards = function(){
-	return this.cards;
-}
-
-Box.prototype.createBox = function(canv, n, arr, title, display){
-	var cards = [];
+function Box(canv, n, arr, num, title, func){
+	var cardWidth = 100;
+	var cardHeight = 150;
+	var sel = null;
 	
 	$(canv).attr('title', title);
 	var canvas = document.createElement("canvas");
 	var overlay = document.createElement("canvas");
-	var sel = null;
-	var num = this.num;
-	var offset = $(canv).offset();
 	
-	canvas.width = arr.length * 150;
-	canvas.height = 200;
+	canvas.width = arr.length * cardWidth;
+	canvas.height = cardHeight;
 	canvas.style.left = "0px";
-	 	canvas.style.top = "0px";
+	canvas.style.top = "0px";
 	canvas.style.position = "absolute";
 	
 	overlay.width = canvas.width;
 	overlay.height = canvas.height;
 	overlay.style.left = "0px";
-	 	overlay.style.top = "0px";
+	overlay.style.top = "0px";
 	overlay.style.position = "absolute";
 
+
+	var offset = window.innerWidth / 2 - 300;
 	//add mouse listeners
 	overlay.addEventListener("mousedown", 
 		function(event){
@@ -49,51 +33,54 @@ Box.prototype.createBox = function(canv, n, arr, title, display){
 			if (sel == null){
 				sel = new MultiSelection(overlay, n);
 			} 
-			sel.select(event, arr.length, offset.left + 450);
+			sel.select(event, arr.length, offset);
 			$('#button_ok').button('enable');
+			//console.log(sel.selection());
 		}, 
 	false);
+
+	//Create canvas for display
+	$(canv).append(canvas);
+	$(canv).append(overlay);
 	
 	$mydialog = $(canv).dialog({
 	  dialogClass: "no-close",
 	  modal: true,
-	  width: 1100,
-	  height: 350,
+	  width: 600,
+	  height: 300,
+	  show: {
+		effect: "slide",
+		duration: 300
+		},
+	  hide: {
+		effect: "fade",
+		duration: 300
+		},
 	  buttons: [
 	    {
 	      id: "button_ok",
 	      text: "OK",
 	      click: function() {
 	      	if (sel != null){
-	      		cards = sel.selection();
-	      		//First sort the indices in descending order		
-	      		cards.sort().reverse();
-	      		//Then remove one by one
-	      		for (var i = 0; i < cards.length; i++){
-					var a = arr.splice(cards[i], 1);
-					var text ="<strong> Player " + num + "</strong> trashes <strong>" + a[0].name + "<strong>. <br>";
-					display(text);
-				}
-	      		
-	      	}
+	      		func(sel.selection().sort().reverse(), arr);	      		
+	      	}	
 	        $( this ).dialog( "close" );
+	        //Delete canvasses
+			$( this ).empty();
 	      }
 	    }
 	  ]
 	});
 	$('#button_ok').button('disable');
-	//Create canvas for display
-	$(canv).append(canvas);
-	$(canv).append(overlay);
-	var ctx = canvas.getContext("2d");
-	ctx.clearRect(0, 0, canvas.width, canvas.height);
-
 	
+	var ctx = canvas.getContext('2d');
 	//draw the cards
 	for (index = 0; index < arr.length; index++){
-		var posX = 150 * index;
-		ctx.drawImage(arr[index].img, posX, 0, 150, 200);
+		var posX = cardWidth * index;
+		arr[index].drawImg(ctx, posX, 0, cardWidth, cardHeight);
 	}
+
+	
 	
 }
 
@@ -104,10 +91,10 @@ index(): returns the index of the card selected
 function Selection(event, overlay){
 	this.overlay = overlay;
 	this.event = event;
-	this.cardWidth = 150;
-	this.cardHeight = 200;
+	this.cardWidth = 100;
+	this.cardHeight = 150;
 	this.selected = -1;
-	this.maxCards = 6; //Width of the hand canvas
+	this.maxCards = 5; //Width of the hand canvas
 
 }
 
@@ -122,8 +109,8 @@ Selection.prototype.index = function(){
 	//Get relative position of cursor
 	var x = event.pageX - rect.left;
 	var y = event.pageY - rect.top;
-	var col = Math.floor(x / cardWidth);	
-	var row = Math.floor(y / cardHeight);
+	var col = Math.floor(x / this.cardWidth);	
+	var row = Math.floor(y / this.cardHeight);
 
 	var num = row * 4 + col;
 	return num;
@@ -141,7 +128,7 @@ Selection.prototype.draw = function(t, length){
 	//Get relative position of cursor
 	var x = event.pageX + (window.pageXOffset || document.body.scrollLeft) - rect.left;
 	var y = event.pageY + document.body.scrollTop - rect.top;
-	var width = Math.min(this.cardWidth, this.maxCards  * this.cardWidth / (length / 2));
+	var width = Math.min(this.cardWidth, this.maxCards * this.cardWidth / (length / t));
 	var col = Math.floor(x / width);	
 	var row = Math.floor(y / cardHeight);
 
@@ -162,8 +149,8 @@ Selection.prototype.draw = function(t, length){
 			ctx.beginPath();
 			ctx.moveTo((col + 1) * width, row * this.cardHeight);
 			ctx.lineTo(col * width, row * this.cardHeight);
-			ctx.lineTo(col * width, row * this.cardHeight + 200);
-			ctx.lineTo((col + 1) * width, row * this.cardHeight + 200);
+			ctx.lineTo(col * width, row * this.cardHeight + this.cardHeight);
+			ctx.lineTo((col + 1) * width, row * this.cardHeight + this.cardHeight);
 			ctx.lineTo((col + 1) * width, row * this.cardHeight);
 			ctx.closePath();
 			ctx.stroke();
@@ -178,8 +165,8 @@ Selection.prototype.draw = function(t, length){
 				ctx.beginPath();
 				ctx.moveTo((col + 1) * width, row * this.cardHeight);
 				ctx.lineTo(col * width, row * this.cardHeight);
-				ctx.lineTo(col * width, row * this.cardHeight + 200);
-				ctx.lineTo((col + 1) * width, row * this.cardHeight + 200);
+				ctx.lineTo(col * width, row * this.cardHeight + this.cardHeight);
+				ctx.lineTo((col + 1) * width, row * this.cardHeight + this.cardHeight);
 				ctx.lineTo((col + 1) * width, row * this.cardHeight);
 				ctx.closePath();
 				ctx.stroke();
@@ -198,8 +185,8 @@ from dialog boxes
 function MultiSelection(overlay, n){
 	this.overlay = overlay;
 	this.event = event;
-	this.cardWidth = 150;
-	this.cardHeight = 200;
+	this.cardWidth = 100;
+	this.cardHeight = 150;
 	this.selected = [];
 	this.n = n; //Number of cards able to be selected
 }
@@ -230,7 +217,7 @@ MultiSelection.prototype.draw = function(){
 MultiSelection.prototype.select = function(event, length, offsetLeft){
 	//Get relative position of cursor
 	var x = event.pageX - offsetLeft;
-	var col = Math.floor(x / cardWidth);
+	var col = Math.floor(x / this.cardWidth);
 	
 	if (col < length){
 		//If number of cards selected is less than maximum, select the card

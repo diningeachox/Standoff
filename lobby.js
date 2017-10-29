@@ -38,6 +38,7 @@ If owned == 0, will have join button */
     btn.addEventListener('click', function(event) {
 	    joinRoom(btn.id);
 	  });
+    btn.className = "button -green center"; //Green button
 	//btn.onclick = joinRoom();
 	cell2.appendChild(btn);
 	console.log(inRoom);
@@ -45,6 +46,7 @@ If owned == 0, will have join button */
 	if (inRoom == 1){
 		var btn = document.createElement('button');
 	    btn.innerHTML = "ENTER";
+	    btn.className = "button -green center"; //Green button
 	    btn.id = id; //Remember the ID of the room
 	    btn.addEventListener('click', function(event) {
 		    enter_room(id);
@@ -77,8 +79,10 @@ function lobby(){
  }
 
 function enter_room(id){
-	$('#wrapper').load('main.html #wrapper', function(){ 
+	$('#wrapper').load('board.html #wrapper', function(){ 
 		console.log("Entering room " + id + " (again)"); 
+		positionelements();
+
 		//Set currentroom to id
 		currentRoom = id;
 		
@@ -140,7 +144,28 @@ socket.on("list_rooms", function(rooms){
 socket.on("join", function(id){
 	//Load contents from main.html, tell server that it's ready to start after loading
 	$(document).ready(function() {
-		$('#wrapper').load('main.html #wrapper', function(){ socket.emit("start", id); });
+		$('#wrapper').load('board.html #wrapper', function(){ 
+			//Position canvas elements
+			positionelements();
+			//Add keyevent to chat textarea
+			$("#talk").keyup(
+			function(e){
+				//Enter key
+				console.log(e.which);
+			    if(e.which == 13){
+			    	
+			        // but not Shift + Enter
+			        if (e.shiftKey !== true){	        
+			        	var text = $("#talk").val();
+			        	sendText(text);
+			            $("#talk").val(''); //Clear chat
+			        }
+			        return false;
+			    }
+			});
+
+			socket.emit("start", id); 
+		});
 	});
 	//Set currentRoom
 	currentRoom = id;
@@ -149,6 +174,71 @@ socket.on("join", function(id){
 socket.on("err", function(data){
  	alert(data);
 });
+
+function positionelements(){
+	var w = window.innerWidth;
+	var h = window.innerHeight;
+	var field = document.getElementById("field");
+	var ctx = field.getContext("2d");
+	var overlay = document.getElementById("field_overlay");
+	var overlay2 = document.getElementById("field_overlay_2");
+	var placements = document.getElementById("field_placement")
+	field.width = 1000;
+	field.height = h;
+	field.style.left = (w / 2 - 500) + "px";
+    field.style.top = "0px";
+    field.style.position = "absolute";
+
+    overlay.width = 1000;
+	overlay.height = h;
+	overlay.style.left = (w / 2 - 500) + "px";
+    overlay.style.top = "0px";
+    overlay.style.position = "absolute";
+
+    overlay2.width = 1000;
+	overlay2.height = h;
+	overlay2.style.left = (w / 2 - 500) + "px";
+    overlay2.style.top = "0px";
+    overlay2.style.position = "absolute";
+
+    placements.width = 1000;
+	placements.height = h;
+	placements.style.left = (w / 2 - 500) + "px";
+    placements.style.top = "0px";
+    placements.style.position = "absolute";
+
+    //Set position of transcript and chat
+    var trans = document.getElementById("transcript");
+    trans.style.width = '155px';
+	trans.style.height = h/2 + "px";
+	trans.style.left = (w  - 150 - 25) + "px";
+    trans.style.top = "0px";
+    trans.style.position = "absolute";
+    trans.style.overflow = "auto";
+    trans.style.border = "1px solid black";
+
+    var chat = document.getElementById("chat");
+    chat.style.width = '155px';
+	chat.style.height = (3.0 * h / 8) + "px";
+	chat.style.left = (w  - 150 - 25) + "px";
+    chat.style.top =  h/2 + "px";
+    chat.style.position = "absolute";
+    chat.style.overflow = "auto";
+    chat.style.border = "1px solid black";
+
+    var talk = document.getElementById("talk");
+    talk.style.width = '151px';
+	talk.style.height = (h / 12) + "px";
+	talk.style.left = (w  - 150 - 25) + "px";
+    talk.style.top =  (7.0 * h / 8) + "px";
+    talk.style.position = "absolute";
+    talk.style.overflow = "auto";
+    talk.style.border = "1px solid black";
+
+    var canvas = document.getElementById("lobbyBtn");
+    canvas.style.top = (h - 80) + "px";
+}
+
 
 /*____________________________________________________________________*/
 /*--------------------------------------------------------------------*/
@@ -165,10 +255,6 @@ function Game(id){
 	this.num;
 	//Turn marker
 	this.turn;
-	//Debt
-	this.debt = 0;
-	//Trojan Horses giving free resources
-	this.horses = 0;
 	//Extra turn
 	this.extra = 0;
 
@@ -176,7 +262,6 @@ function Game(id){
 	this.r, co, range;
 
 	this.tempPacket; //packet in midst of resolution
-	this.tempColor;
 	this.tempCard; //Card in midst of resolution
 
 	this.tempObj; //Add-on in construction
@@ -187,9 +272,9 @@ function Game(id){
 	this.deck = [];
 	this.discard = [];
 	this.opp_discard = [];
-	this.field = [];
-	this.addOns = [];
-	this.effects = [];
+	this.field = {};
+	this.effects = {};
+	this.tempfield = {};
 	this.coord;
 
 	this.oppHand = [];
@@ -197,13 +282,13 @@ function Game(id){
 	//Actions
 	this.actions = 4;
 	this.placements = 1;
-	this.budget = new Vector(0, 0);
+	this.budget = 0;
+
+	//Field actions
+	this.count = 0;
 
 	//Flags
 	this.resolving = 0;
-	//Next action is free
-	this.free = 0;
-	this.isPoly = 0;
 
 	//Improvements
 	this.improv = 0;
@@ -215,10 +300,6 @@ function saveVars(v){
 	v.num = num;
 	//Turn marker
 	v.turn = turn;
-	//Debt
-	v.debt = debt;
-	//Trojan Horses giving free resources
-	v.horses = horses;
 	//Extra turn
 	v.extra = extra;
 
@@ -228,7 +309,6 @@ function saveVars(v){
 	v.range = range;
 
 	v.tempPacket = tempPacket; //packet in midst of resolution
-	v.tempColor = tempColor;
 	v.tempCard = tempCard; //Card in midst of resolution
 
 	v.tempObj = tempObj; //Add-on in construction
@@ -240,8 +320,8 @@ function saveVars(v){
 	v.discard = discard;
 	v.opp_discard = opp_discard;
 	v.field = field;
-	v.addOns = addOns;
 	v.effects = effects;
+	v.tempfield = tempfield;
 	v.coord = coord;
 	v.oppHand = oppHand;
 	
@@ -250,11 +330,11 @@ function saveVars(v){
 	v.placements = placements;
 	v.budget = budget;
 
+	//Field actions
+	v.count = count;
+
 	//Flags
 	v.resolving = resolving;
-	//Next action is free
-	v.free = free;
-	v.isPoly = isPoly;
 
 	//Improvements
 	v.improv = improv;
@@ -266,10 +346,6 @@ function loadVars(v){
 	num = v.num;
 	//Turn marker
 	turn = v.turn;
-	//Debt
-	debt = v.debt;
-	//Trojan Horses giving free resources
-	horses = v.horses;
 	//Extra turn
 	extra = v.extra;
 
@@ -279,7 +355,6 @@ function loadVars(v){
 	range = v.range;
 
 	tempPacket = v.tempPacket; //packet in midst of resolution
-	tempColor = v.tempColor;
 	tempCard = v.tempCard; //Card in midst of resolution
 
 	tempObj = v.tempObj; //Add-on in construction
@@ -291,8 +366,8 @@ function loadVars(v){
 	discard = v.discard;
 	opp_discard = v.opp_discard;
 	field = v.field;
-	addOns = v.addOns;
 	effects = v.effects;
+	tempfield = v.tempfield;
 	coord = v.coord;
 	oppHand = v.oppHand;	
 
@@ -301,11 +376,11 @@ function loadVars(v){
 	placements = v.placements;
 	budget = v.budget;
 
+	//Field actions
+	count = v.count;
+
 	//Flags
 	resolving = v.resolving;
-	//Next action is free
-	free = v.free;
-	isPoly = v.isPoly;
 
 	//Improvements
 	improv = v.improv;

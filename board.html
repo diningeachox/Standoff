@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title>Standoff</title>
+	<style>
+	body {
+	  padding: 20px;
+	}
+	
+	table {
+		border: 1px solid black;
+  		border-collapse: collapse;
+	}
+	tr {
+		height: 100px;
+	}
+	td {
+		font-size: 40px;
+		font-weight: bold;
+		width: 400px;
+		text-align: center
+	}
+	textarea { 
+		font-size: 14px; 
+	}
+	</style>
+	<script src="https://cdn.socket.io/socket.io-1.4.5.js"></script>
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/1.12.4/jquery.min.js"></script>
+
+
+<link rel="stylesheet" href="//code.jquery.com/ui/1.12.1/themes/base/jquery-ui.css">
+<link rel="stylesheet" href="http://ajax.googleapis.com/ajax/libs/jqueryui/1.9.2/themes/smoothness/jquery-ui.css" />
+  <script src="https://code.jquery.com/jquery-1.12.4.js"></script>
+  <script src="https://code.jquery.com/ui/1.12.1/jquery-ui.js"></script>
+
+<script type="text/javascript" src="hexagon.js"></script> 
+<script type="text/javascript" src="lobby.js"></script> 
+  <script type="text/javascript" src="decks.js"></script> 
+  <script type="text/javascript" src="hex.js"></script> 
+
+   <script type="text/javascript" src="dialog.js"></script> 
+</head>
+
+
+<script type="text/javascript">
+//<![CDATA[
+
+window.onload = function(){
+	//Center the canvases
+	
+
+/*
+	initialize_vars();	
+	initialize_field();
+	drawField();
+	*/
+	//playPoly(0);
+
+	//disposal();
+}
+//]]>
+</script>
+
+<body>
+  <div id="wrapper">
+
+	<canvas id="field" style="z-index: 0;"></canvas>
+	<canvas id="field_placement" style="z-index: 1;"></canvas>
+	<canvas id="field_overlay" style="z-index: 3;"></canvas>
+	<canvas id="field_overlay_2" style="z-index: 2;"></canvas>
+
+
+<div style="position: absolute; left: 450px; top: 450px">
+<p id="display"></p>
+
+</div>
+
+<div style="position: absolute; left: 450px; top: 520px; font-size: 20px">
+<p id="tiles"></p>
+
+</div>
+
+
+<canvas id="card_display" width="250" height="375" 
+   style="position: absolute; left: 1100px; top: 180px; z-index: 0; border:1px solid #000000;"></canvas>
+
+
+ 
+
+<button id="undoBtn" class="button -dark center" type="button" onclick="undo()" style="position: absolute; left: 960px; top: 450px; z-index: 9">Undo Placement</button>
+
+ <button id="creditBtn" class="button -dark center" type="button" onclick="creditAction()" style="position: absolute; left: 960px; top: 505px; z-index: 9;">+1 Credit</button>
+
+ <button id="endTurnBtn" class="button -dark center" type="button" onclick="reset()" style="position: absolute; left: 960px; top: 560px; z-index: 9;">End Turn</button>
+
+
+
+
+ <canvas id="deck_display" width="100" height="150" 
+   style="position: absolute; left: 1100px; top: 580px; z-index: 9;"></canvas> 
+  <canvas id="discard" width="100" height="150" 
+   style="position: absolute; left: 1220px; top: 580px; z-index: 9;"></canvas> 
+
+<canvas id="opp_deck" width="100" height="150" 
+   style="position: absolute; left: 1100px; top: 10px; z-index: 9;"></canvas> 
+   <canvas id="opp_discard" width="100" height="150" 
+   style="position: absolute; left: 1220px; top: 10px; z-index: 9;"></canvas> 
+
+   <canvas id="opp_hand" width="150" height="150" 
+   style="position: absolute; left: 450px; top: 10px; z-index: 9;"></canvas> 
+
+
+<div style="position: absolute; top: 580px; left: 450px;">
+ <canvas id="hand" width="500" height="150" 
+   style="position: absolute; left: 0px; top: 0px; z-index: 4; border:1px solid #000000;"></canvas>
+ <canvas id="hand_overlay" width="500" height="150" 
+   style="position: absolute; left: 0px; top: 0px; z-index: 5;"></canvas>
+</div>
+
+<!--
+Dialog boxes
+
+-->
+<div id="dialog">
+</div>
+
+<div id="discard_display" title="Discard pile"></div>
+<div id="opp_discard_display" title="Discard pile"></div>
+
+
+<canvas id="staples" width="400" height="300" style=" position: absolute; left: 10px; top: 10px; z-index: 8"></canvas>
+
+<canvas id="staples_overlay" width="400" height="300" style=" position: absolute; left: 10px; top: 10px; z-index: 9"></canvas>
+
+<canvas id="random" width="400" height="300" style=" position: absolute; left: 10px; top: 350px; z-index: 8"></canvas>
+
+<canvas id="random_overlay" width="400" height="300" style=" position: absolute; left: 10px; top: 350px; z-index: 9"></canvas>
+
+
+<div id="transcript" >
+	Transcript for the game: <br>
+</div>
+<div id="chat">
+</div>
+
+<textarea id="talk" style="resize: none;" placeholder="Type to chat..."></textarea>
+
+<button id="lobbyBtn" class="button -green center" type="button" onclick="lobby()" style="position: absolute; left: 10px;"> Back to lobby</button>
+
+<div style="position: relative;" id="poly">
+		<canvas id="p" width="1050" height="200" style=" position: absolute; left: 0px; top: 0px; z-index: 0"></canvas>
+		<canvas id="p_overlay" width="1050" height="200" style=" position: absolute; left: 0px; top: 0px; z-index: 0"></canvas>
+</div>
+
+
+<div id="opp_hand" title="Choose a card to discard">
+	<canvas id="o_hand" width="1050" height="200" style=" position: absolute; left: 0px; top: 0px; z-index: 0"></canvas>
+		<canvas id="o_hand_overlay" width="1050" height="200" style=" position: absolute; left: 0px; top: 0px; z-index: 0"></canvas>
+</div>
+
+
+
+</div>
+</body>
+
+</html>

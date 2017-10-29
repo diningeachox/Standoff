@@ -1,37 +1,47 @@
 //Game parameters
 var length = 16;
 var width = 16;
+var hexLength = 20;
+var blockDist = hexLength * Math.sqrt(3);
+var boardsize = 7;
 var blockLength = 40;
-var cardWidth = 150;
-var cardHeight = 200;
+var cardWidth = 100;
+var cardHeight = 150;
+
+var centerX = 500;
+var centerY = 330;
 
 var lastAction = null; 
+
+//Animation
+var starttime;
+var colors = ["#C0C0C0", "yellow", "blue", "black", "#FF69B4"];
 
 //Image array
 var images = [];
 
-
-
 //Address array for images
-var arr = ["images/1.png", "images/2.png", "images/3.png", "images/4.png", 
+var arr = ["images/1p.png", "images/2p.png", "images/3p.png", "images/4p.png",
 "images/1c.png", "images/2c.png", "images/3c.png", 
-"images/3f.png", "images/4f.png", "images/5f.png",
-"images/restock.png", "images/blitz.png", "images/hack.png", "images/obstruction.png", 
-"images/airstrike.png", "images/fundraiser.png", "images/airdrop.png", "images/artillery.png",
-"images/forcefield.png", "images/duplicate.png",
-"images/L.png", "images/T.png", "images/gamma.png", "images/square.png",
-"images/S.png", "images/Z.png", "images/I.png",
-"images/1p.png", "images/2p.png", "images/3p.png", "images/4p.png", 
-"images/initiative.png", "images/trojan.png", "images/horse.png", "images/emp.png",
-"images/early_access.png", "images/refinery.png", "images/disposal.png",
-"images/steve.png", "images/linda.png", "images/bart.png", "images/zelda.png", 
-"images/mineral.gif", "images/ruby.png"
+ 
+"images/airdrop.png", 
+"images/airstrike.png",
+"images/artillery.png",
+"images/blitz.png", 
+"images/disposal.png",
+"images/early_access.png", 
+"images/forcefield.png",
+"images/fundraiser.png",
+"images/hack.png",  
+"images/obstruction.png", 
+"images/restock.png", 
+"images/trojan.png", 
+"images/offensive.png",
+
+"images/horse.png",
+
+"images/hand.png"
 ];
-
-
-//Card Images
-
-
 
 //Preload Images
 function ImageLoader(sources, callback) 
@@ -42,7 +52,6 @@ function ImageLoader(sources, callback)
     for (i = 0; i < numImages; i++) {
         images[i] = new Image();
         images[i].onload = function() {
-
             if (++loadedImages >= numImages) {
                 callback(images);
             }
@@ -58,104 +67,51 @@ var loader = ImageLoader(arr, function() {
     for (var i = 0; i < images.length; i++) {
         console.log("Image " + (i + 1) + " is loaded!");
     }
+
+
 });
 //Action cards which put improvements on tiles
 var imps = [17, 18];
 var aggro, midrange, combo, dup, hacker;
 
 //Cards that are in every draft
-var staples = [27, 28, 29, 30, 4, 5, 6, 36];
-var quantity = [18, 18, 18, 18, 30, 24, 16, 16];
+var staples = [0, 1, 2, 3, 4, 5, 6, 19];
+var quantity = [18, 18, 18, 18, 30, 24, 16, 8];
 
 //Card list
+
 var cards = [
-	new Card(0, ["createPacket('1', 1)"], "", 1, new Vector(0, 0), new Vector(0, 0)),
-	new Card(1, ["createPacket('1010', 1)"], "", 1, new Vector(0, 0), new Vector(0, 0)),
-	new Card(2, ["createPacket('100100100', 1)"], "", 0, new Vector(0, 0), new Vector(0, 0)),
-	new Card(3, ["createPacket('1101', 1)"], "", 0, new Vector(0, 0), new Vector(0, 0)),
-	new Card(4, ["gain(1)"], "1C", 0, new Vector(0, 0), new Vector(0, 0)),
-	new Card(5, ["gain(2)"], "2C", 0, new Vector(0, 0), new Vector(2, 0)),
-	new Card(6, ["gain(3)"], "3C", 0, new Vector(0, 0), new Vector(5, 0)),
-	new Card(7, ["fastGain(3)"], "3 Fast C", 0, new Vector(0, 0), new Vector(0, 0)),
-	new Card(8, ["fastGain(4)"], "4 Fast C", 0, new Vector(0, 0), new Vector(2, 0)),
-	new Card(9, ["fastGain(5)"], "5 Fast C", 0, new Vector(0, 0), new Vector(5, 0)),
-	new Card(10, ["draw(3, 0)"], "Restock", 1, new Vector(2, 0), new Vector(3, 0)),
-	new Card(11, ["addActions(3)"], "Blitz", 1, new Vector(3, 0), new Vector(4, 0)),
-	new Card(12, ["targetDiscard(1)"], "Hack", 1, new Vector(2, 0), new Vector(3, 0)),	
-	new Card(13, ["obstruct('1', 0)"], "Obstruction", 1, new Vector(2, 0), new Vector(3, 0)),
-	new Card(14, ["destroy('1', 9, 9, 200)"], "Airstrike", 1, new Vector(3, 1), new Vector(3, 2)),
-	new Card(15, ["fundraiser()"], "Fundraiser", 1, new Vector(0, 0), new Vector(3, 0)),
-	new Card(16, ["createPacket('1', 0)"], "Airdrop", 1, new Vector(2, 0), new Vector(03, 0)),
-	new Card(17, ["artillery()"], "Artillery", 1, new Vector(4, 1), new Vector(4, 2)),
-	new Card(18, ["force()"], "Forcefield", 1, new Vector(2, 0), new Vector(3, 1)),
-	new Card(19, ["duplicate()"], "Duplicate", 1, new Vector(4, 1), new Vector(4, 1)),
-	new Card(20, ["createPacket('100100110', 1)"], "", 0, new Vector(0, 0), new Vector(0, 0)),
-	new Card(21, ["createPacket('111010000', 1)"], "", 0, new Vector(0, 0), new Vector(0, 0)),
-	new Card(22, ["createPacket('110100100', 1)"], "", 0, new Vector(0, 0), new Vector(0, 0)),
-	new Card(23, ["createPacket('1111', 1)"], "", 0, new Vector(0, 0), new Vector(0, 0)),
-	new Card(24, ["createPacket('100110010', 1)"], "", 0, new Vector(0, 0), new Vector(0, 0)),
-	new Card(25, ["createPacket('010110100', 1)"], "", 0, new Vector(0, 0), new Vector(0, 0)),
-	new Card(26, ["createPacket('1000100010001000', 1)"], "", 0, new Vector(0, 0), new Vector(0, 0)),
-	new Card(27, ["createPacket('1', 1)"], "1P", 1, new Vector(0, 0), new Vector(1, 0)),
-	new Card(28, ["createPacket('1010', 1)"], "2P", 1, new Vector(2, 0), new Vector(2, 0)),
-	new Card(29, ["playPoly(2)"], "3P", 1, new Vector(3, 0), new Vector(3, 1)),
-	new Card(30, ["playPoly(3)"], "4P", 1, new Vector(4, 1), new Vector(4, 2)),
-	new Card(31, ["extraTurn()"], "Initiative", 1, new Vector(9, 0), new Vector(5, 0)),
-	new Card(32, ["trojan()"], "Trojan", 1, new Vector(1, 0), new Vector(4, 0)),
-	new Card(33, [""], "Horse", 0, new Vector(0, 0), new Vector(0, 0)),
-	new Card(34, ["emp()"], "EMP", 1, new Vector(2, 0), new Vector(2, 2)),
-	new Card(35, ["tutor()"], "Early Access", 1, new Vector(1, 0), new Vector(3, 1)),
-	new Card(36, ["refinery()"], "Refinery", 1, new Vector(2, 0), new Vector(2, 0)),
-	new Card(37, ["disposal()"], "Disposal", 1, new Vector(2, 0), new Vector(2, 0))
+	new Card(0, ["playPoly(1)"], "1-Hex", 1, 0, 0),
+	new Card(1, ["playPoly(2)"], "2-Hex", 1, 2, 2),
+	new Card(2, ["playPoly(3)"], "3-Hex", 1, 4, 4),
+	new Card(3, ["playPoly(4)"], "4-Hex", 1, 6, 6),
+	new Card(4, ["gain(1)"], "1 credit", 0, 0, 0),
+	new Card(5, ["gain(2)"], "2 credits", 0, 0, 2),
+	new Card(6, ["gain(3)"], "3 credits", 0, 0, 5),	
+	
+	new Card(7, ["airdrop()"], "Airdrop", 1, 0, 2),
+	new Card(8, ["destroy(9, 9, 200, 0)"], "Airstrike", 1, 0, 3),
+	new Card(9, ["artillery()"], "Artillery", 1, 4, 4),
+	new Card(10, ["addActions(3)"], "Blitz", 1, 3, 4),
+	new Card(11, ["disposal()"], "Disposal", 1, 0, 2),
+	new Card(12, ["tutor()"], "Early Access", 1, 1, 3),	
+	new Card(13, ["force()"], "Forcefield", 1, 2, 3),	
+	new Card(14, ["fundraiser()"], "Fundraiser", 1, 0, 3),
+	new Card(15, ["targetDiscard(1)"], "Hack", 1, 2, 3),	
+	new Card(16, ["obstruct()"], "Obstruction", 1, 2, 3),	
+	new Card(17, ["draw(3, 0)"], "Restock", 1, 1, 3),
+	new Card(18, ["trojan()"], "Trojan", 1, 1, 4),
+	new Card(19, ["offensive()"], "Tactical Offensive", 1, 1, 2),	
+	
+	new Card(20, [""], "Horse", 0, 0, 0)
 ];
 
 // 6 1C's and 4 1P's is the starting deck for all players
-var starter = [cards[4], cards[4], cards[4], cards[4], cards[4], cards[4], cards[27],
-				cards[27], cards[27], cards[27]];
-
-/*
-var starter = [cards[4], cards[4], cards[4], cards[4], cards[4], cards[4], cards[37],
-				cards[37], cards[37], cards[37]];
-*/
-
-var poly = [[cards[0]],
-	[cards[1]],
-	[cards[2], cards[3]],
-	[cards[20], cards[21], cards[22], cards[23], cards[24], cards[25], cards[26]]
-];
-
-
-
-var decks = [dup, aggro, hacker, midrange, combo];
+var starter = [cards[4], cards[4], cards[4], cards[4], cards[4], cards[4],
+				cards[0], cards[0], 
+				cards[0], cards[0]];
 
 //Classes for cards and packets
-
-//Satellite card
-function Sat(index, arr, name, ac, cost, price){
-	this.effect = arr.slice(0);
-	this.name = name;
-	this.ac = ac; //Number of actions costed
-	this.cost = cost; //Cost to play
-	this.img = images[index];
-	this.ind = index;
-	this.price = price; //Price to buy from market
-}
-
-Sat.prototype.getIndex = function(){
-	return this.ind;
-}
-
-Sat.prototype.drawImg = function(ctx, x, y, w, h){
-	var image = this.img;
-	if (image.complete){
-		ctx.drawImage(image, x, y, w, h);
-	} else {
-		image.onLoad = function () {
-			ctx.drawImage(image, x, y, w, h);
-		}
-	}
-	
-}
 
 //Non polyomino card
 function Card(index, arr, name, ac, cost, price){
@@ -177,7 +133,11 @@ Card.prototype.drawImg = function(ctx, x, y, w, h){
 	if (image.complete){
 		ctx.drawImage(image, x, y, w, h);
 	} else {
-		image.onLoad = function () {
+		image.onLoad = function () {			
+			//Turn off anti-aliasing
+		    ctx.webkitImageSmoothingEnabled = false;
+			ctx.mozImageSmoothingEnabled = false;
+			ctx.imageSmoothingEnabled = false;
 			ctx.drawImage(image, x, y, w, h);
 		}
 	}
@@ -192,10 +152,10 @@ Card.prototype.resolve = function(p){
 			alert("You do not have enough actions to play this card!");
 			return 0;
 		}
-		if (!budget.subtract(this.cost).affordable() && this.cost != 0){
+		if (budget < this.cost && this.cost != 0){
 			/*Can't play a card if you don't have enough budget 
 			except resource cards (which have 0 cost)*/
-			alert("You do not have enough budget to play this card!");
+			alert("You do not have enough credits to play this card!");
 			return 0;
 		}
 	}
@@ -206,8 +166,9 @@ Card.prototype.resolve = function(p){
 		}
 
 	}
+	//Good to play card
 	if (((actions - this.ac >= 0 || this.ac == 0) &&
-	 (budget.subtract(this.cost).affordable() || this.cost.equals(new Vector(0, 0)))) ||
+	 (budget >= this.cost || this.cost == 0)) ||
 		p == 0){
 		for (i = 0; i < this.effect.length; i++){
 			s = this.effect[i];
@@ -215,6 +176,8 @@ Card.prototype.resolve = function(p){
 			rightbr = s.indexOf(")");
 			func = s.substring(0, leftbr);
 			args = s.substring(leftbr + 1, rightbr).split(", ");
+			
+			
 
 			//Convert arg to integer if it can be converted
 			for (i = 0; i < args.length; i++) {
@@ -229,7 +192,7 @@ Card.prototype.resolve = function(p){
 		if (resolving == 0){
 			actions -= this.ac;
 			if (p == 1){
-				budget = budget.subtract(this.cost);
+				budget -= this.cost;
 			}
 			if (this.ac > 0){
 				lastAction = s;
@@ -239,16 +202,183 @@ Card.prototype.resolve = function(p){
 	} 
 }
 
-//Trap cards
-function Trap(trigger, effect){
-	this.trigger = trigger;
-	this.effect = effect;
-};
-
-Trap.prototype.activate = function(){
-
+//A "virtual" polyomino card, purely for the GUI
+function PolyCard(shape){
+	var coords = "";
+	for (i = 0; i < shape.length; i++){
+		coords += shape[i][0] + "" + shape[i][1];
+	}
+	Card.call(this, -1, ["createPacket(" + coords + "), 1)"], "", 0, 0, 0);
+	this.shape = shape;
 }
 
+PolyCard.prototype.drawImg = function(ctx, x, y, w, h){
+	ctx.rect(x, y, cardWidth, cardHeight);
+	ctx.stroke();
+	for (var i = 0; i < this.shape.length; i++) {    
+    	var a = this.shape[i][0];
+    	var b = this.shape[i][1];
+		var h = new Hex(a, b, 10);
+		h.draw(x + cardWidth / 2, y + cardHeight / 2, "green", 3, 1.0, ctx);
+	}	
+}
+
+//Inherit prototypes
+PolyCard.prototype = Object.create(Card.prototype);
+
+//Hexagonal polyomino
+function Poly(shape){	
+	this.shape = shape;
+};
+
+Poly.prototype.getShape = function(){
+	return this.shape;
+}
+
+//Rotate by pi/3 (counterclockwise)
+Poly.prototype.rotate = function(){
+	for (i = 0; i < this.shape.length; i++){
+		var a = this.shape[i][0];
+		var b = this.shape[i][1];
+		this.shape[i] = [-1 * b, a + b];
+	}
+};
+
+//Put packet onto field
+Poly.prototype.place = function(a, b, n){	
+	var oldnums = [];
+	for (k = 0; k < this.shape.length; k++) {
+		var x = a + this.shape[k][0];
+		var y = b + this.shape[k][1];
+		if (field.hasOwnProperty([x, y]) && n >= 0){
+			//Sace the old tiles for animating
+			if (n == 0){
+				oldnums.push(field[[x, y]].num);
+			}	
+			field[[x, y]].num = n;	
+		}		
+    }
+    var shape = this.shape;
+    if (n > 0){
+	    requestAnimationFrame(function(timestamp){ // call requestAnimationFrame again with parameters
+	    	starttime = timestamp || new Date().getTime(); 
+	        drawPlacement(shape, a, b, colors[n], timestamp, 400); //Draw animation over 400 millisecs
+	    });
+	} else if (n == 0){
+		drawField();
+		destruction(shape, a, b, oldnums);
+	}
+    
+};
+
+//Checks if current position places the packet on top of another one
+Poly.prototype.collide = function(a, b, num, field){
+	for (i = 0; i < this.shape.length; i++){
+		var x = a + this.shape[i][0];
+		var y = b + this.shape[i][1];
+		if (field.hasOwnProperty([x, y])){
+			if (field[[x, y]].num != 0){
+				return true;
+			}
+			if (effects.hasOwnProperty([x, y]) && effects[[x, y]].includes(num)){
+				return true;
+			}
+		} else {
+			//This means out of bounds
+			return true;
+		}		
+	}
+    return false;
+};
+
+//Checks if current position places the packet on top of another one of the same color
+Poly.prototype.collideWith = function(a, b, n, field){
+	for (i = 0; i < this.shape.length; i++){
+		var x = a + this.shape[i][0];
+		var y = b + this.shape[i][1];
+		if (field.hasOwnProperty([x, y])){
+			if (field[[x, y]].num == n){
+				return true;
+			}
+		}
+	}
+    return false;
+};
+
+//Checks if current position of the packet is adjacent to edge or another packet
+Poly.prototype.adjacent = function(a, b, num, field){
+	return this.collideWith(a - 1, b, num, field) || 
+	this.collideWith(a + 1, b, num, field) || 
+	this.collideWith(a, b - 1, num, field) || 
+	this.collideWith(a, b + 1, num, field) ||
+	this.collideWith(a + 1, b - 1, num, field) || 
+	this.collideWith(a - 1, b + 1, num, field);
+};
+
+//If packet is touching the edge but not going off the edge
+Poly.prototype.touchingEdge = function(a, b){
+	var phi = false;
+	for (var i = 0; i < this.shape.length; i++) {    
+    	var x = a + this.shape[i][0];
+    	var y = b + this.shape[i][1];
+    	var z = -1 * (x + y);	
+    	var dist = Math.abs(x) + Math.abs(y) + Math.abs(z);
+    	if (dist == 2 * boardsize){
+    		//One of the hexes is touching the edge
+    		phi = true;
+    	} else if (dist > 2 * boardsize){
+    		//Going off the edge
+    		return false;
+    	}
+		
+	}	
+	return phi;
+}
+
+Poly.prototype.drawShape = function(ctx, a, b, color, alpha){
+    ctx.globalAlpha = alpha;
+    for (var i = 0; i < this.shape.length; i++) {    
+    	var x = a + this.shape[i][0];
+    	var y = b + this.shape[i][1];
+    	var z = -1 * (x + y);	
+    	if (field.hasOwnProperty([x, y])){
+    		var h = new Hex(x, y, hexLength);
+			h.draw(centerX, centerY, color, 3, alpha, ctx);
+    	} 		
+	}	
+};
+
+Poly.prototype.placeImp = function(a, b, n){
+	var oldnums = [];
+	for (var i = 0; i < this.shape.length; i++) {    
+    	var x = a + this.shape[i][0];
+    	var y = b + this.shape[i][1];
+    	/*n = -1 means no change, 
+    	n = 0 means destroy improvement,
+    	n > 0 means place an improvement */
+    	if (field.hasOwnProperty([[x, y]]) && n >= 0){
+    		if (n == 0){
+				oldnums.push(field[[x, y]].addOn);
+			}	
+    		field[[x, y]].addOn = n;
+    	} 		
+	}
+	var shape = this.shape;
+	if (n > 0){
+		requestAnimationFrame(function(timestamp){ // call requestAnimationFrame again with parameters
+			starttime = timestamp || new Date().getTime(); 
+		    drawImp(shape, a, b, n, timestamp, 400); //Draw animation over 400 millisecs
+		});
+	} else if (n == 0){
+		drawField();
+		destructionImp(shape, a, b, oldnums);
+	}
+};
+
+
+
+/*
+//Rectangular polyomino
 function Packet(str, placement){
 	this.shape = str.substring(1, str.length - 1);
 	this.placement = placement;
@@ -377,31 +507,4 @@ Packet.prototype.drawShape = function(ctx, x, y, size, color, alpha){
 	}	
 };
 
-function Vector(a, b){
-	this.credits = a;
-	this.minerals = b;
-}
-
-Vector.prototype.add = function(v){
-	return new Vector(this.credits + v.credits, this.minerals + v.minerals);
-}
-
-Vector.prototype.subtract = function(v){
-	return new Vector(this.credits - v.credits, this.minerals - v.minerals);
-}
-
-Vector.prototype.project = function(t){
-	if (t == 0){
-		return new Vector(this.credits, 0);
-	} 
-	return new Vector(0, this.minerals);
-	
-}
-
-Vector.prototype.equals= function(v){
-	return this.credits == v.credits && this.minerals == v.minerals;
-}
-
-Vector.prototype.affordable = function(){
-	return this.credits >= 0 && this.minerals >= 0;
-}
+*/

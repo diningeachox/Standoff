@@ -26,7 +26,7 @@ var rooms = {};
 var clients = [];
 
 //Cards that are randomized for each draft
-var cardlist = [10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 31, 32, 35, 37];
+var cardlist = [7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18];
 
 //Shuffle an array
 function shuffle(arr){
@@ -36,10 +36,7 @@ function shuffle(arr){
 		var card = Math.floor(Math.random() * arr.length);
 		temp.push(arr[card]);
 		arr.splice(card, 1);
-
 	}
-	
-	
 	return temp.slice();
 }
 
@@ -103,8 +100,7 @@ io.sockets.on('connection', function(socket) {
 			p1.emit("start", {c: "rgb(255, 255, 0)", c2: "rgb(150, 150, 255)", num: "1", t: "1"});
 			p2.emit("start", {c: "rgb(150, 150, 255)", c2: "rgb(255, 255, 0)", num: "2", t: "0"});
 			
-			/* Set up the markets */
-			
+			/* Set up the markets */			
 			//create market
 			var market = [];
 			for (i = 0; i < cardlist.length; i++){
@@ -128,7 +124,8 @@ io.sockets.on('connection', function(socket) {
 	});
 
     socket.on("msg", function(data){
-		socket.broadcast.to(data.room).emit(data.msg);
+    	var room = rooms[data.room];
+		socket.broadcast.to(room.name.toString()).emit("msg", data.msg);
 	});
 
     //Delete client on disconnect
@@ -155,7 +152,7 @@ io.sockets.on('connection', function(socket) {
 		//Send to everyone else in the same room
 		socket.broadcast.to(room.name.toString()).emit("status", {
 			actions: data.actions, placements: data.placements, 
-			budget: data.budget, handsize: data.handsize
+			budget: data.budget, handsize: data.handsize, decksize: data.decksize
 		});
 	});
 
@@ -174,43 +171,25 @@ io.sockets.on('connection', function(socket) {
 		var room = rooms[data.room];
 		//Send location of placement to p2
 		socket.broadcast.to(room.name).emit("improvement", {
-			xcoord: data.xcoord, ycoord: data.ycoord, sh: data.sh,
-			n: data.n
+			xcoord: data.xcoord, ycoord: data.ycoord, sh: data.sh, n: data.n
 		});
 	});
 
-	//Communicate addons between clients
-	socket.on("addon", function(data){
+	socket.on("outline", function(data){
 		var room = rooms[data.room];
 		//Send location of placement to p2
-		socket.broadcast.to(room.name).emit("addon", {
-			xcoord: data.xcoord, ycoord: data.ycoord, type: data.type
+		socket.broadcast.to(room.name).emit("outline", {
+			xcoord: data.xcoord, ycoord: data.ycoord
 		});
 	});
 
-	//Communicate addons between clients
-	socket.on("addForcefield", function(data){
+	//Communicate shadow between clients
+	socket.on("shadow", function(data){
 		var room = rooms[data.room];
 		//Send location of placement to p2
-		socket.broadcast.to(room.name).emit("addForcefield", {
-			xcoord: data.xcoord, ycoord: data.ycoord, player: data.player
+		socket.broadcast.to(room.name).emit("shadow", {
+			xcoord: data.xcoord, ycoord: data.ycoord, sh: data.sh, color: data.color
 		});
-	});
-
-	//Communicate addons between clients
-	socket.on("clearForcefield", function(data){
-		var room = rooms[data.room];
-		//Send location of placement to p2
-		socket.broadcast.to(room.name).emit("clearForcefield", {
-			xcoord: data.xcoord, ycoord: data.ycoord, player: data.player
-		});
-	});
-
-	//Discard
-	socket.on("randomDiscard", function(){
-		var room = rooms[data.room];
-		//Send location of placement to p2
-		socket.broadcast.to(room.name).emit("randomDiscard");
 	});
 
 	//Targetted discard
@@ -224,7 +203,7 @@ io.sockets.on('connection', function(socket) {
 	socket.on("hand", function(data){
 		var room = rooms[data.room];
 		//Send location of placement to p2
-		socket.broadcast.to(room.name).emit("hand", data.hand);
+		socket.broadcast.to(room.name).emit("hand", {hand: data.hand});
 	});
 
 	//Start upkeep
@@ -236,16 +215,9 @@ io.sockets.on('connection', function(socket) {
 
 	//Add a trojan horse card
 	socket.on("trojan", function(data){
-		var room = rooms[data.room];
+		var room = rooms[data];
 		//Send location of placement to p2
 		socket.broadcast.to(room.name).emit("trojan");
-	});
-
-	//Keep track of trojan horse gifts
-	socket.on("horse", function(data){
-		var room = rooms[data.room];
-		//Send location of placement to p2
-		socket.broadcast.to(room.name).emit("horse");
 	});
 	
 	//Write transcript
