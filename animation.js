@@ -202,3 +202,108 @@ function destructionImpAnim(a, b, color, timestamp, duration){
         impParticles = [];
     }
 }
+
+//Flying cards
+function cardAnim(callback, args){
+    return function flyingCard(obj, oldX, oldY, newX, newY, timestamp, duration){
+        var timestamp = timestamp || new Date().getTime();
+        var runtime = timestamp - starttime;
+        var progress = runtime / duration;
+        progress = Math.min(progress, 1);
+        var canvas = document.getElementById("flying_card");
+        var ctx = canvas.getContext("2d");
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        
+        obj.drawImg(ctx, (newX - oldX) * progress + oldX, (newY - oldY) * progress + oldY, cardWidth, cardHeight);
+        
+        if (runtime < duration){ // if duration not met yet
+            requestAnimationFrame(function(timestamp){ // call requestAnimationFrame again with parameters
+                flyingCard(obj, oldX, oldY, newX, newY, timestamp, duration)
+            });
+        } else {
+            callback.apply(this, args); //Call whatever the callback function is
+        }
+    }
+}
+
+function toDiscard(active, discard, arr, timestamp, duration){
+    var timestamp = timestamp || new Date().getTime();
+    var runtime = timestamp - starttime;
+    var progress = runtime / duration;
+    progress = Math.min(progress, 1);
+    var canvas = document.getElementById("flying_card");
+    var ctx = canvas.getContext("2d");
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    console.log(discard);
+    
+    var newX = $("#discard").offset().left;
+    var newY = $("#discard").offset().top;
+    if (!active){
+        newX = $("#opp_discard").offset().left;
+        newY = $("#opp_discard").offset().top;
+    }
+    
+    for (var i = 0; i < arr.length; i++){
+        var oldX = $("#playarea").offset().left; 
+        var oldY = $("#playarea").offset().top + (i * 50);
+        cards[arr[i].ind].drawImg(ctx, (newX - oldX) * progress + oldX, (newY - oldY) * progress + oldY, cardWidth, cardHeight);
+    }
+    
+    
+    if (runtime < duration){ // if duration not met yet
+        requestAnimationFrame(function(timestamp){ // call requestAnimationFrame again with parameters
+            toDiscard(active, discard, arr, timestamp, duration);
+        });
+    } else {
+        discard.push.apply(discard, arr);
+        if (active){
+            socket.emit("toDiscard", {room: currentRoom, play: arr});
+            drawDiscard(discard[discard.length - 1]); 
+            //Empty playarea
+            playarea = [];  
+            drawPlay(playarea);
+            
+            sendStatus();
+            showStatus();
+            canvas = document.getElementById("field_overlay");
+            ctx = canvas.getContext("2d");
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            //Disable buttons
+            turn = 2; //Discard phase
+
+            disableButtons();
+
+            if (hand.length <= 5){
+                //Draw back up to 5
+                console.log(discard.length);
+                draw(5 - hand.length, 0);
+                //Hand turn to next player
+                turn = 0;
+                //Empty the credits 
+                budget = 0;     
+                disableButtons();
+                var text ="----------------------";
+                updateScroll(text);
+                socket.emit("upkeep", currentRoom);         
+            }
+        } else {
+            var canvas = document.getElementById("opp_discard");
+            var ctx = canvas.getContext("2d");
+            if (discard.length > 0){
+                cards[discard[discard.length - 1].ind].drawImg(ctx, 0, 0, cardWidth, cardHeight);
+            } else {
+                //Reset opp_discard
+                ctx.fillStyle = "gray";
+                ctx.fillRect(0, 0, cardWidth, cardHeight);
+                ctx.font = "30px serif";
+                ctx.strokeText("Opponent's", 10, 50);
+                ctx.strokeText("discard", 10, 100);
+            }
+            canvas = document.getElementById("playarea");
+            ctx = canvas.getContext("2d");
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+        }
+        
+    }
+}

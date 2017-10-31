@@ -24,6 +24,7 @@ var cursorY;
 var market = [];
 var hand = [];
 var deck = [];
+var playarea = [];
 var discard = [];
 var opp_discard = [];
 var field = {};
@@ -74,6 +75,11 @@ socket.on("upkeep", function(){
 	budget = 0;
 	turn = 1;
 	enableButtons();
+
+	//Clear playarea
+	var canvas = document.getElementById("playarea");
+	ctx = canvas.getContext("2d");
+	ctx.clearRect(0, 0, canvas.width, canvas.height);
 	//Count credit improvs
 	for (i = 0; i < wells.length; i++){
 		if (field[wells[i]].num == num){
@@ -405,7 +411,6 @@ function dist(a, b, c, d){
 
 function tutor(){
 	//First create a canvas to display the cards in the deck
-	resolving = 1;
 	function tutorCard(selection, arr){
 		hand.push(arr[selection[0]]); //Add tutored card to hand
 		arr.splice(selection[0], 1);
@@ -413,16 +418,17 @@ function tutor(){
 		drawDeck();
 		showStatus();
 		sendStatus();
-		var text ="<strong> Player " + num + "</strong> tutors a card from his/her deck. <br>";
+		var text ="<strong> Player " + num + "</strong> chooses a card from his/her deck and puts it into his/her hand. <br>";
 		update(text);
 		
 	}
 	var newthing = new Box("#dialog", 1, deck, num, "Choose a card from your deck to put into your hand", tutorCard);
-	resolving = 0;
+	sendStatus();
+	showStatus();
+	//resolving = 0;
 }
 
 function disposal(){
-	resolving = 1;
 	function trashCards(selection, arr){
 		var cards = selection;
   		//Then remove one by one
@@ -434,7 +440,9 @@ function disposal(){
 		}
 	}
 	var newthing = new Box("#dialog", 2, hand, num, "Choose up to 2 cards to trash", trashCards);
-	resolving = 0;
+	sendStatus();
+	showStatus();
+	
 }
 
 //Look through the discard pile
@@ -501,6 +509,10 @@ function undo(){
 	//Put card currently in resolution back to owner's hand
 	if (tempCard != null){
 		hand.push(tempCard);
+		//Update play area
+		playarea.pop();
+		socket.emit("play", {room: currentRoom, play: playarea});
+		drawPlay(playarea);
 	}
 	drawHand();
 	//clear field overlay
@@ -603,28 +615,18 @@ function reset(){
 	placements = 1;
 	tempCard = null;
 	tempPacket = null;	
-	sendStatus();
-	showStatus();
-	var canvas = document.getElementById("field_overlay");
+
+	//Put all cards in playarea into discard pile
+	var canvas = document.getElementById("playarea");
 	var ctx = canvas.getContext("2d");
 	ctx.clearRect(0, 0, canvas.width, canvas.height);
-	//Disable buttons
-	turn = 2; //Discard phase
-
-	disableButtons();
+	requestAnimationFrame(function(timestamp){ // call requestAnimationFrame again with parameters
+    	starttime = timestamp || new Date().getTime(); 
+        toDiscard(1, discard, playarea, timestamp, 200);
+    });	
 	
-	if (hand.length <= 5){
-		//Draw back up to 5
-		draw(5 - hand.length, 0);
-		//Hand turn to next player
-		turn = 0;
-		//Empty the credits 
-		budget = 0;		
-		disableButtons();
-		var text ="----------------------";
-		updateScroll(text);
-		socket.emit("upkeep", currentRoom);			
-	}
+
+	
 }
 
 //Shuffle an array
@@ -731,7 +733,7 @@ function discardHand(ind){
 function targetDiscard(player){
 	if (player == 1){
 		socket.emit("targetDiscard", {room: currentRoom, ind: -1});
-		resolving = 1;
+		//resolving = 1;
 	}
 }
 
@@ -941,7 +943,7 @@ function fieldActions(event){
 					placements -= tempPacket.placement;
 					budget -= tempCard.cost;
 					actions -= tempCard.ac;
-					updateDiscard(tempCard);
+					//updateDiscard(tempCard);
 					resolving = 0;
 					tempCard = null;
 					tempPacket = null;	
@@ -988,7 +990,7 @@ function fieldActions(event){
 		if (resolving == 1){
 			//Draw hex indicating the improvement being used
 			var canvas = document.getElementById("field_overlay_2");
-			var ctx = pcanvas.getContext("2d");
+			var ctx = canvas.getContext("2d");
 			ctx.clearRect(0, 0, canvas.width, canvas.height);
 			var hex = new Hex(a, b, hexLength - 5);
 			hex.draw(centerX, centerY, "#00FF00", 5, 1.0, ctx);
@@ -1140,7 +1142,6 @@ function selectCard(arr, number, p){
 		var card = arr[number];
 		var cost = card.cost;
 		if (budget >= cost && actions >= card.ac){
-			//updateDiscard(hand.splice(number, 1)[0]);
 			drawHand();
 			//Finished resolving or if it's picking a polyomino
 			if (resolving == 0 || p == 1){
@@ -1187,18 +1188,29 @@ function execute(arr, number, poly){
 	
 	//If card is ok to resolve
 	if (obj.resolve(1) == 1){
-		//Remove card from hand		
+
+		var oldX = $("#hand").offset().left + (number * cardWidth);
+		var oldY = $("#hand").offset().top;
+		var newX = $("#playarea").offset().left;
+		var newY = playarea.length * 50 + $("#playarea").offset().top;
+		//Animation of card flying to play area
+		requestAnimationFrame(function(timestamp){ // call requestAnimationFrame again with parameters
+	    	starttime = timestamp || new Date().getTime(); 
+	        var f = cardAnim(updatePlay, [obj]); //Draw animation over 1 sec
+	        f(obj, oldX, oldY, newX, newY, timestamp, 200);
+	    });
+
 		//When card is finished resolving
-		if (resolving == 0){
-			
+		if (resolving == 0){			
 			//Update transcript
 			var text ="<strong> Player " + num + "</strong> plays <strong>" + obj.name + "<strong>. <br>";
 			updateScroll(text);
 			
 			//Trash instead of discard if the card is Trojan
 			if (obj.name !== "Trojan"){
-				updateDiscard(obj);
-				drawDiscard(discard[discard.length - 1]);
+
+				//updateDiscard(obj);
+				//drawDiscard(discard[discard.length - 1]);
 			} else {
 				var text ="<strong> Player " + num + "</strong> trashes <strong> Trojan <strong>. <br>";
 				updateScroll(text);
@@ -1368,11 +1380,13 @@ function sendText(text){
 
 //Update opponent's status
 socket.on("status", function(data){
-	document.getElementById("display").innerHTML = 
-	"Opponent's turn: <br>" + 
-	"Actions left: " + data.actions + "<br>" + 
-	"Placements left: " + data.placements + "<br>" + 
-	"Credits: " + data.budget + "<br>";
+	if (turn == 0){
+		document.getElementById("display").innerHTML = 
+		"Opponent's turn: <br>" + 
+		"Actions left: " + data.actions + "<br>" + 
+		"Placements left: " + data.placements + "<br>" + 
+		"Credits: " + data.budget + "<br>";
+	}
 
 	//Draw opp hand
 	var canvas = document.getElementById("opp_hand");
@@ -1475,7 +1489,11 @@ socket.on("hand", function(data){
 	for (i = 0; i < data.hand.length; i++){
 		arr.push(cards[data.hand[i].ind]);
 	}
-	var newthing = new Box("#dialog", 1, arr, num, "Choose a card from your deck to put into your hand", discard);
+	var newthing = new Box("#dialog", 1, arr, num, "Choose a card from your opponent's hand to discard", discard);
+	//actions -= 1;
+	//budget -= 2;
+	sendStatus();
+	showStatus();
 	resolving = 0;	
 });
 
@@ -1491,7 +1509,7 @@ socket.on("targetDiscard", function(data){
 		drawDiscard(obj);
 		sendStatus();
 		showStatus();
-		var text = "<strong> " + obj.name + "<strong> in <strong> Player " + (3 - num) + "</strong> has been discarded by <strong> Player " + num + "</strong>. <br>";
+		var text = "<strong> " + obj.name + "</strong> in <strong> Player " + (3 - num) + "</strong>'s hand has been discarded by <strong> Player " + num + "</strong>. <br>";
 		update(text);
     }
 });
@@ -1510,6 +1528,34 @@ socket.on("msg", function(data){
 	var element = document.getElementById("chat");
 	element.innerHTML += data;
     //element.scrollTop = element.scrollHeight;
+});
+
+socket.on("play", function(data){
+	var oldX = $("#opp_hand").offset().left;
+	var oldY = $("#opp_hand").offset().top;
+	var newX = $("#playarea").offset().left;
+	var newY = (data.length - 1) * 50 + $("#playarea").offset().top;
+	requestAnimationFrame(function(timestamp){ // call requestAnimationFrame again with parameters
+    	starttime = timestamp || new Date().getTime(); 
+        var f = cardAnim(drawPlay, [data]); 
+	     f(cards[data[data.length - 1].ind], oldX, oldY, newX, newY, timestamp, 200);
+
+    });
+});
+
+socket.on("toDiscard", function(data){
+	var canvas = document.getElementById("playarea");
+	var ctx = canvas.getContext("2d");
+	ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+	var arr = [];
+	for (i = 0; i < data.length; i++){
+		arr.push(cards[data[i].ind]);
+	}
+	requestAnimationFrame(function(timestamp){ // call requestAnimationFrame again with parameters
+    	starttime = timestamp || new Date().getTime(); 
+        toDiscard(0, opp_discard, arr, timestamp, 200);
+    });
 });
 
 socket.on("discard", function(data){
@@ -1531,6 +1577,13 @@ socket.on("discard", function(data){
 function updateDiscard(obj){
 	discard.push(obj);
 	socket.emit("discard", {room: currentRoom, discard: discard});
+	drawDiscard(discard[discard.length - 1]);
+}
+
+function updatePlay(obj){
+	playarea.push(obj);
+	socket.emit("play", {room: currentRoom, play: playarea});
+	drawPlay(playarea);
 }
 
 function updateScroll(text){
@@ -1538,6 +1591,15 @@ function updateScroll(text){
 	element.innerHTML += text;
     element.scrollTop = element.scrollHeight;
     socket.emit("event", {room: currentRoom, text: text});
+}
+
+function drawPlay(arr){
+	var canvas = document.getElementById("playarea");
+	var ctx = canvas.getContext("2d");
+	ctx.clearRect(0, 0, canvas.width, canvas.height);
+	for (i = 0; i < arr.length; i++){
+		cards[arr[i].ind].drawImg(ctx, 0, i * 50, cardWidth, cardHeight);	
+	}
 }
 
 function drawMarket(){

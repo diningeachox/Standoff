@@ -207,6 +207,14 @@ function positionelements(){
     placements.style.top = "0px";
     placements.style.position = "absolute";
 
+//Set animation layers
+    var fly = document.getElementById("flying_card");
+    fly.width = w;
+	fly.height = h;
+	fly.style.left = "0px";
+    fly.style.top = "0px";
+    fly.style.position = "absolute";
+
     //Set position of transcript and chat
     var trans = document.getElementById("transcript");
     trans.style.width = '155px';
@@ -270,6 +278,7 @@ function Game(id){
 	this.market = [];
 	this.hand = [];
 	this.deck = [];
+	this.playarea = [];
 	this.discard = [];
 	this.opp_discard = [];
 	this.field = {};
@@ -317,6 +326,7 @@ function saveVars(v){
 	v.market = market;
 	v.hand = hand;
 	v.deck = deck;
+	v.playarea = playarea;
 	v.discard = discard;
 	v.opp_discard = opp_discard;
 	v.field = field;
@@ -364,6 +374,7 @@ function loadVars(v){
 	hand = v.hand;
 	deck = v.deck;
 	discard = v.discard;
+	playarea = v.playarea;
 	opp_discard = v.opp_discard;
 	field = v.field;
 	effects = v.effects;

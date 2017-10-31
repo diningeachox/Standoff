@@ -28,6 +28,7 @@ var clients = [];
 //Cards that are randomized for each draft
 var cardlist = [7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18];
 
+
 //Shuffle an array
 function shuffle(arr){
 	var temp = [];
@@ -236,6 +237,17 @@ io.sockets.on('connection', function(socket) {
 	socket.on("discard", function(data){
 		var room = rooms[data.room];
 		socket.broadcast.to(room.name).emit("discard", data.discard);
+	});
+
+	//Update playarea
+	socket.on("play", function(data){
+		var room = rooms[data.room];
+		socket.broadcast.to(room.name).emit("play", data.play);
+	});
+
+	socket.on("toDiscard", function(data){
+		var room = rooms[data.room];
+		socket.broadcast.to(room.name).emit("toDiscard", data.play);
 	});
 
 	//Update  quantity piles

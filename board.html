@@ -3,26 +3,6 @@
 <head>
 	<title>Standoff</title>
 	<style>
-	body {
-	  padding: 20px;
-	}
-	
-	table {
-		border: 1px solid black;
-  		border-collapse: collapse;
-	}
-	tr {
-		height: 100px;
-	}
-	td {
-		font-size: 40px;
-		font-weight: bold;
-		width: 400px;
-		text-align: center
-	}
-	textarea { 
-		font-size: 14px; 
-	}
 	</style>
 	<script src="https://cdn.socket.io/socket.io-1.4.5.js"></script>
 <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.12.4/jquery.min.js"></script>
@@ -70,12 +50,12 @@ window.onload = function(){
 	<canvas id="field_overlay_2" style="z-index: 2;"></canvas>
 
 
-<div style="position: absolute; left: 450px; top: 450px">
+<div style="position: absolute; left: 470px; top: 470px">
 <p id="display"></p>
 
 </div>
 
-<div style="position: absolute; left: 450px; top: 520px; font-size: 20px">
+<div style="position: absolute; left: 1010px; top: 470px; font-size: 20px; width: 75px">
 <p id="tiles"></p>
 
 </div>
@@ -87,11 +67,11 @@ window.onload = function(){
 
  
 
-<button id="undoBtn" class="button -dark center" type="button" onclick="undo()" style="position: absolute; left: 960px; top: 450px; z-index: 9">Undo Placement</button>
+<button id="undoBtn" class="button -dark center" type="button" onclick="undo()" style="position: absolute; left: 960px; top: 570px; z-index: 9">Undo Placement</button>
 
- <button id="creditBtn" class="button -dark center" type="button" onclick="creditAction()" style="position: absolute; left: 960px; top: 505px; z-index: 9;">+1 Credit</button>
+ <button id="creditBtn" class="button -dark center" type="button" onclick="creditAction()" style="position: absolute; left: 960px; top: 625px; z-index: 9;">+1 Credit</button>
 
- <button id="endTurnBtn" class="button -dark center" type="button" onclick="reset()" style="position: absolute; left: 960px; top: 560px; z-index: 9;">End Turn</button>
+ <button id="endTurnBtn" class="button -dark center" type="button" onclick="reset()" style="position: absolute; left: 960px; top: 680px; z-index: 9;">End Turn</button>
 
 
 
@@ -106,16 +86,22 @@ window.onload = function(){
    <canvas id="opp_discard" width="100" height="150" 
    style="position: absolute; left: 1220px; top: 10px; z-index: 9;"></canvas> 
 
-   <canvas id="opp_hand" width="150" height="150" 
-   style="position: absolute; left: 450px; top: 10px; z-index: 9;"></canvas> 
+   <canvas id="opp_hand" width="100" height="100" 
+   style="position: absolute; left: 990px; top: 10px; z-index: 9;"></canvas> 
 
+<canvas id="playarea" width="100" height="450" 
+   style="position: absolute; left: 450px; top: 10px; z-index: 4;"></canvas>
 
 <div style="position: absolute; top: 580px; left: 450px;">
  <canvas id="hand" width="500" height="150" 
-   style="position: absolute; left: 0px; top: 0px; z-index: 4; border:1px solid #000000;"></canvas>
+   style="position: absolute; left: 0px; top: 0px; z-index: 5; border:1px solid #000000;"></canvas>
  <canvas id="hand_overlay" width="500" height="150" 
-   style="position: absolute; left: 0px; top: 0px; z-index: 5;"></canvas>
+   style="position: absolute; left: 0px; top: 0px; z-index: 6;"></canvas>
 </div>
+
+<canvas id="flying_card"
+   style="pointer-events:none;"></canvas>
+
 
 <!--
 Dialog boxes

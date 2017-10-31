@@ -8,7 +8,7 @@ var blockLength = 40;
 var cardWidth = 100;
 var cardHeight = 150;
 
-var centerX = 500;
+var centerX = 560;
 var centerY = 330;
 
 var lastAction = null; 

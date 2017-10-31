@@ -216,7 +216,7 @@ MultiSelection.prototype.draw = function(){
 
 MultiSelection.prototype.select = function(event, length, offsetLeft){
 	//Get relative position of cursor
-	var x = event.pageX - offsetLeft;
+	var x = event.pageX - offsetLeft + $("#dialog").scrollLeft();
 	var col = Math.floor(x / this.cardWidth);
 	
 	if (col < length){
