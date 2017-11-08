@@ -73,7 +73,7 @@ window.onload = function(){
 
  <button id="endTurnBtn" class="button -dark center" type="button" onclick="reset()" style="position: absolute; left: 960px; top: 680px; z-index: 9;">End Turn</button>
 
-
+<button id="doneBtn" class="button -dark center" type="button" style="position: absolute; left: 340px; top: 680px; z-index: 9;">Don't trigger</button>
 
 
  <canvas id="deck_display" width="100" height="150" 
@@ -139,12 +139,16 @@ Dialog boxes
 </div>
 
 
-<div id="opp_hand" title="Choose a card to discard">
-	<canvas id="o_hand" width="1050" height="200" style=" position: absolute; left: 0px; top: 0px; z-index: 0"></canvas>
-		<canvas id="o_hand_overlay" width="1050" height="200" style=" position: absolute; left: 0px; top: 0px; z-index: 0"></canvas>
+<div id="second_hand" style="position: absolute; top: 580px; left: 450px;">
+	<canvas id="second_hand" width="1050" height="200" style=" position: absolute; left: 0px; top: 0px; z-index: 11; pointer-events:none;"></canvas>
+		<canvas id="second_hand_overlay" width="1050" height="200" style=" position: absolute; left: 0px; top: 0px; z-index: 12; pointer-events:none;"></canvas>
 </div>
 
-
+<div id="screen"> 
+	<div id="screentext">
+	Waiting for opponent to respond...
+</div>
+</div>
 
 </div>
 </body>

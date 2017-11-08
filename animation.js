@@ -98,6 +98,7 @@ function drawImp(shape, a, b, imp, timestamp, duration){
 
 //Destructin of tile
 function destruction(shape, a, b, arr){
+    particles = [];
     for (var i = 0; i < shape.length; i++) {    
         var x = a + shape[i][0];
         var y = b + shape[i][1];
@@ -125,6 +126,7 @@ function destruction(shape, a, b, arr){
 
 //Destruction of improvement
 function destructionImp(shape, a, b, arr){
+    impParticles = [];
     for (var i = 0; i < shape.length; i++) {    
         var x = a + shape[i][0];
         var y = b + shape[i][1];
@@ -235,7 +237,6 @@ function toDiscard(active, discard, arr, timestamp, duration){
     var canvas = document.getElementById("flying_card");
     var ctx = canvas.getContext("2d");
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-    console.log(discard);
     
     var newX = $("#discard").offset().left;
     var newY = $("#discard").offset().top;
@@ -256,13 +257,22 @@ function toDiscard(active, discard, arr, timestamp, duration){
             toDiscard(active, discard, arr, timestamp, duration);
         });
     } else {
+        for(var i = arr.length - 1; i > 0; i--){
+            var v = arr[i];
+            if (v.name === "Trojan"){
+                arr.splice(i , 1);
+            }
+           
+        }
         discard.push.apply(discard, arr);
         if (active){
-            socket.emit("toDiscard", {room: currentRoom, play: arr});
-            drawDiscard(discard[discard.length - 1]); 
-            //Empty playarea
-            playarea = [];  
-            drawPlay(playarea);
+            if (arr.length > 0){
+                socket.emit("toDiscard", {room: currentRoom, play: arr});
+                drawDiscard(discard[discard.length - 1]); 
+                //Empty playarea
+                playarea = [];  
+                drawPlay(playarea);
+            }
             
             sendStatus();
             showStatus();
@@ -276,14 +286,13 @@ function toDiscard(active, discard, arr, timestamp, duration){
 
             if (hand.length <= 5){
                 //Draw back up to 5
-                console.log(discard.length);
                 draw(5 - hand.length, 0);
                 //Hand turn to next player
                 turn = 0;
                 //Empty the credits 
                 budget = 0;     
                 disableButtons();
-                var text ="----------------------";
+                var text ="---------------------- <br>";
                 updateScroll(text);
                 socket.emit("upkeep", currentRoom);         
             }

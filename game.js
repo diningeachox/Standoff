@@ -1,5 +1,5 @@
 //<![CDATA[
-
+var turnnum = 1;
 /** Actual game logic */
 
 
@@ -76,6 +76,12 @@ socket.on("upkeep", function(){
 	turn = 1;
 	enableButtons();
 
+	if (num == 1){
+		turnnum += 1;
+		var text = "Turn " + turnnum + ": <br>";
+		updateScroll(text);
+	}
+
 	//Clear playarea
 	var canvas = document.getElementById("playarea");
 	ctx = canvas.getContext("2d");
@@ -120,9 +126,12 @@ socket.on("start", function(data){
 	}
 	document.getElementById("undoBtn").disabled = true; //Undo btn is disabled at start
 	
+	
 	//Send public info to opponent
 	if (turn == 1){
 		sendStatus();
+		var text = "Turn 1: <br>";
+		updateScroll(text);
 	}
 	
 	
@@ -242,7 +251,6 @@ function initialize_market(){
 			//Draw card
 			var num = sel.index();
 			
-			console.log("The selection is: " + num);
 			displayCard(cards[market[num]]);
 		}, 
 	false);
@@ -422,7 +430,7 @@ function tutor(){
 		update(text);
 		
 	}
-	var newthing = new Box("#dialog", 1, deck, num, "Choose a card from your deck to put into your hand", tutorCard);
+	var newthing = new Box("#dialog", 1, deck, num, "Choose a card from your deck to put into your hand", tutorCard, 1);
 	sendStatus();
 	showStatus();
 	//resolving = 0;
@@ -432,14 +440,14 @@ function disposal(){
 	function trashCards(selection, arr){
 		var cards = selection;
   		//Then remove one by one
+  		//console.log(selection);
   		for (var i = 0; i < cards.length; i++){
 			var a = arr.splice(cards[i], 1);
-			console.log(a);
 			var text ="<strong> Player " + num + "</strong> trashes <strong>" + a[0].name + "<strong>. <br>";
 			update(text);
 		}
 	}
-	var newthing = new Box("#dialog", 2, hand, num, "Choose up to 2 cards to trash", trashCards);
+	var newthing = new Box("#dialog", 3, hand, num, "Choose up to 2 cards to trash from your hand", trashCards, 0);
 	sendStatus();
 	showStatus();
 	
@@ -586,6 +594,17 @@ function offensive(){
 	document.getElementById("undoBtn").disabled = false;
 }
 
+function napalm(){
+	var poly = new Poly([[0, 0]]);	
+	tempPacket = {poly: poly, color: "white", len: 1, placement: 0, improv: 0, num: -1};
+	count = tempPacket.len;
+	r = 0;
+	co = 0;
+	range = 1000;
+	resolving = 1;
+	document.getElementById("undoBtn").disabled = false;
+}
+
 function smartpush(arr, item){
 	if (!arr.includes(item)){
 		arr.push(item);
@@ -600,7 +619,6 @@ function addForcefield(a, b, dist, n){
 				if (effects.hasOwnProperty([i, j])){					
 					smartpush(effects[[i, j]], n);
 				} else {
-					//console.log(i + "," + j);
 					effects[[i, j]] = [n];
 				}
 			}
@@ -620,9 +638,14 @@ function reset(){
 	var canvas = document.getElementById("playarea");
 	var ctx = canvas.getContext("2d");
 	ctx.clearRect(0, 0, canvas.width, canvas.height);
+	var animationTime = 200;
+
 	requestAnimationFrame(function(timestamp){ // call requestAnimationFrame again with parameters
     	starttime = timestamp || new Date().getTime(); 
-        toDiscard(1, discard, playarea, timestamp, 200);
+    	if (playarea.length == 0){
+        	animationTime = 0;
+        } 
+        toDiscard(1, discard, playarea, timestamp, animationTime);
     });	
 	
 
@@ -855,6 +878,8 @@ function fieldActions(event){
 	var a = arr[0];
 	var b = arr[1];
 
+	var permitted = 1;
+
 	//If we're using an action card/poly card
 	if (tempCard != null && resolving == 1){	
 		if (placements - tempPacket.placement >= 0){		
@@ -874,14 +899,11 @@ function fieldActions(event){
 					collidingBlocks = tempPacket.poly.collide(a, b, -10, tempfield);
 					colliding = tempPacket.poly.collide(a, b, 3 - num, tempfield);
 					touchingEdge = false; //We don't care about this after first tile
-					console.log("Adjacent: " + adjacent);
-					console.log("colliding: " + colliding);
 				}
 				
 				if (((!colliding && (adjacent || touchingEdge)) || 
 					(tempPacket.color == "black" && !collidingBlocks)) && 
 					tempPacket.color != "orange"){
-					console.log(collidingBlocks);
 
 					hex.draw(centerX, centerY, tempPacket.color, 3, 1.0, ctx);
 					tempfield[[a, b]].num = tempPacket.num;
@@ -903,18 +925,22 @@ function fieldActions(event){
 						tempfield[[a, b]].num = tempPacket.num;
 						tempShape.push([a, b]);
 						count -= 1;	
-					}
-												
+						if (tempPacket.num != -1){ //If not napalm
+							permitted = 0;
+						}
+						
+					}												
 				}
 
+
 				//Tactical offensive
-				if (tempPacket.color == "purple"){				
-					//Check if (a, b) is adjacent to friendly tile					
+				if (tempPacket.color == "purple"){									
 					if (tempPacket.poly.adjacent(a, b, num, field)){	
 						hex.draw(centerX, centerY, "green", 3, 1.0, ctx);
 						tempfield[[a, b]].num = tempPacket.num;
 						tempShape.push([a, b]);
 						count -= 1;		
+						permitted = 0;
 					 } else {
 					 	alert("You must target a tile adjacent to a tile of your colour!")
 					 }						
@@ -924,18 +950,28 @@ function fieldActions(event){
 				"Tiles placed: " + (tempPacket.len - count) + "/" + tempPacket.len;
 
 				if (count == 0){
-					var poly = new Poly(tempShape);
-					poly.place(0, 0, tempPacket.num);
-					poly.placeImp(0, 0, tempPacket.improv);
-					socket.emit("placement", {room: currentRoom, xcoord: 0, ycoord: 0, sh: tempShape, color: tempPacket.color});
-					socket.emit("improvement", {room: currentRoom, xcoord: 0, ycoord: 0, sh: tempShape, n: tempPacket.improv});
-					//Change forcefield color if placing under a forcefield
-
+					if (permitted){
+						var poly = new Poly(tempShape);
+						poly.place(0, 0, tempPacket.num);
+						poly.placeImp(0, 0, tempPacket.improv);
+						socket.emit("placement", {room: currentRoom, xcoord: 0, ycoord: 0, sh: tempShape, num: tempPacket.num, imp: tempPacket.improv});
+						
+						//Reset tempfield
+						for (var key in tempfield) {
+						    // check if the property/key is defined in the object itself, not in parent
+						    if (tempfield.hasOwnProperty(key)) {           
+						        tempfield[key].num = 0; 	      
+						    }
+						}
+					} else {
+						socket.emit("destroy", {room: currentRoom, xcoord: 0, ycoord: 0, sh: tempShape, num: tempPacket.num, imp: tempPacket.improv});
+						$('#screen').fadeIn(100);
+						$( '#screen' ).css( 'pointer-events', 'all' );
+					}
+					
 					//Update stuff upon successful field placement
 					drawHand();
-					
-					//Update transcript
-					
+
 					var text;					
 					text ="<strong> Player " + num + "</strong> plays <strong>" + tempCard.name +  "<strong>. <br>";					
 					updateScroll(text);
@@ -947,20 +983,8 @@ function fieldActions(event){
 					resolving = 0;
 					tempCard = null;
 					tempPacket = null;	
-					count == 0;
 					tempShape = [];
 					document.getElementById("undoBtn").disabled = true;
-
-					//Reset tempfield
-					for (var key in tempfield) {
-					    // check if the property/key is defined in the object itself, not in parent
-					    if (tempfield.hasOwnProperty(key)) {           
-					        tempfield[key].num = 0; 	      
-					    }
-					}
-
-					
-
 
 					var canvas = document.getElementById("field_placement");
 					var ctx = canvas.getContext("2d");
@@ -988,23 +1012,23 @@ function fieldActions(event){
 	} else {
 		//This is when using improvements already on the field
 		if (resolving == 1){
-			//Draw hex indicating the improvement being used
-			var canvas = document.getElementById("field_overlay_2");
-			var ctx = canvas.getContext("2d");
-			ctx.clearRect(0, 0, canvas.width, canvas.height);
-			var hex = new Hex(a, b, hexLength - 5);
-			hex.draw(centerX, centerY, "#00FF00", 5, 1.0, ctx);
-			socket.emit("outline", {room: currentRoom, xcoord: a, ycoord: b}); //Send to opp
+			
 
 			if (tempPacket.color == "white" && dist(r, co, a, b) <= range){
-				tempPacket.poly.place(a, b, 0);
-				//Erase tile
-				tempPacket.poly.placeImp(a, b, 0);				    
-				drawField();
+				
 
 				//Send message to server containing coordinates and packet shape
-				socket.emit("placement", {room: currentRoom, xcoord: a, ycoord: b, sh: tempPacket.poly.shape, color: "white"});	
-				socket.emit("improvement", {room: currentRoom, xcoord: a, ycoord: b, sh: tempPacket.poly.shape, n: "0"});	
+				socket.emit("destroy", {room: currentRoom, xcoord: 0, ycoord: 0, sh: [[a, b]], num: 0, imp: 0});	
+				$('#screen').fadeIn(100);
+				$( '#screen' ).css( 'pointer-events', 'all' );
+
+				var text;					
+				text ="<strong> Player " + num + "</strong> activates an <strong> Artillery Token <strong>. <br>";					
+				updateScroll(text);	
+
+				var canvas = document.getElementById("field_placement");
+				var ctx = canvas.getContext("2d");
+				ctx.clearRect(0, 0, canvas.width, canvas.height);
 
 				budget -= 1;
 				actions -= 1;
@@ -1017,7 +1041,7 @@ function fieldActions(event){
 				//Artillery
 				if (field[[a, b]].addOn == 1 && field[[a, b]].num == num){
 					if (actions > 0 && budget > 0){
-						destroy(a, b, 4, 0);					
+						destroy(a, b, 3, 0);	//Nerfed to 3 range from 4				
 					} else if (actions == 0){
 						alert("You do not have enough actions to fire an artillery!");
 					} else if (budget <= 0){
@@ -1050,9 +1074,6 @@ function drawShadow(x, y){
 		var adjacent = tempPacket.poly.adjacent(a, b, num, field);
 		var touchingEdge = tempPacket.poly.touchingEdge(a, b);
 		var color = tempPacket.color;
-
-		//console.log("Colliding: " + colliding);
-		//console.log("Adjacent: " + adjacent);
 
 		//If not the first tile placed then check adjacency and collision on tempfield instead
 		if (count < tempPacket.len){
@@ -1123,17 +1144,80 @@ function initialize_hand(){
 	canvas.addEventListener("mousedown", 
 		function(event){
 			//Get card selected
-			var number = sel.draw(1, hand.length);
+			var number = sel.index();
 			if (event.button == 0){		
 				if (turn == 1){		
+					number = sel.draw(1, hand.length);
 					selectCard(hand, number, 0);	
-				}			
+				} 	
 			} else if (event.button == 2){	
 				number = sel.index();
 				selectedDiscard(turn - 1, number);
 			}
 		}
 	, false);
+}
+
+function initialize_second_hand(arr){
+	var canvas = document.getElementById("second_hand_overlay");
+	var sel = new Selection(event, canvas);
+	var ctx = canvas.getContext("2d");
+	ctx.clearRect(0, 0, canvas.width, canvas.height);
+	canvas.style.pointerEvents = "all";
+
+	document.getElementById('doneBtn').style.visibility = 'visible';
+
+	for (i = 0; i < arr.length; i++){
+		var n = arr[i];
+		ctx.shadowBlur = 20;
+		ctx.shadowColor = "rgb(0, 0, 255)";
+		ctx.strokeStyle = "rgb(0, 0, 255)";
+		ctx.lineWidth = 8;
+		ctx.strokeRect(n * cardWidth, 0, cardWidth, cardHeight);
+	}
+
+	//Disable menu that pops up on right-click
+	canvas.oncontextmenu = function() {
+     	return false;  
+	} 
+
+	//Left click to trigger card
+	canvas.addEventListener("mousedown", 
+		function(event){
+			var number = sel.index();
+			if (event.button == 0){						
+				if (arr.includes(number)){ //Triggerable card
+					var card = hand[number];
+					card.trigger(number);
+
+					
+
+					removeListeners();
+
+					canvas = document.getElementById("field_placement");
+					ctx = canvas.getContext("2d");
+					ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+					drawHand();
+
+					document.getElementById('doneBtn').style.visibility = 'hidden';
+
+					//Clear event listeners
+					$("#doneBtn").unbind("click");
+				}						
+			}
+		}		
+	, false);
+}
+
+function removeListeners(){
+	var canvas = document.getElementById("second_hand_overlay");
+	var ctx = canvas.getContext("2d");
+	ctx.clearRect(0, 0, canvas.width, canvas.height);
+	canvas.style.pointerEvents = "none";
+	var new_element = canvas.cloneNode(true);
+	canvas.parentNode.replaceChild(new_element, canvas);
+	new_element.style.pointerEvents = "none;"
 }
 
 function selectCard(arr, number, p){
@@ -1161,6 +1245,7 @@ function selectCard(arr, number, p){
 		} 
 	}
 }
+
 
 //Display the card the mouse is hovering over
 function showCard(event, arr){
@@ -1416,16 +1501,6 @@ socket.on("status", function(data){
 	ctx.fillRect(0, 0, cardWidth, cardHeight);
 	ctx.font = "48px serif";
   	ctx.strokeText(data.decksize, 10, 50);
-
-
-});
-
-socket.on("outline", function(data){
-	var canvas = document.getElementById("field_overlay_2");
-	var ctx = pcanvas.getContext("2d");
-	ctx.clearRect(0, 0, canvas.width, canvas.height);
-	var hex = new Hex(data.xcoord, data.ycoord, hexLength - 5);
-	hex.draw(centerX, centerY, "red", 5, 1.0, ctx);
 });
 
 socket.on("improvement", function(data){
@@ -1435,24 +1510,90 @@ socket.on("improvement", function(data){
 
 //Functions upon receiving messages from server
 socket.on("placement", function(data){
-	var canvas = document.getElementById("field");
-	var ctx = canvas.getContext("2d");	
+	var canvas = document.getElementById("field_placement");
+	var ctx = canvas.getContext("2d");
+	ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+	canvas = document.getElementById("field_overlay");
+	ctx = canvas.getContext("2d");
+	ctx.clearRect(0, 0, canvas.width, canvas.height);
+
 	var packet = new Poly(data.sh);
-	//Modify entries in field
-	var n = 3 - num;
-	if (data.color == "black"){
-		n = 3;
-	} else if (data.color == "white"){
-		n = 0;
-		if (field.hasOwnProperty([data.xcoord, data.ycoord])){
-			field[[data.xcoord, data.ycoord]].addOn =0;
-		}
-	} else if (data.color == "purple"){
-		n = 0;
-	}
-	packet.place(data.xcoord, data.ycoord, n);
+	packet.place(0, 0, data.num);
+	packet.placeImp(0, 0, data.imp);
+	
+	//Reset blackout screen
+	$('#screen').fadeOut(100);
+	$( '#screen' ).css( 'pointer-events', 'none' );
+	
 	//Reset improvements on the tile	
 	//drawField();
+});
+
+socket.on("destroy", function(data){	
+	var packet = new Poly(data.sh);
+	//Draw a hex first
+	var canvas = document.getElementById("field_placement");
+	var ctx = canvas.getContext("2d");
+	ctx.clearRect(0, 0, canvas.width, canvas.height);
+	for (i = 0; i < data.sh.length; i++){
+		var hex = new Hex(data.xcoord + data.sh[i][0], data.ycoord + data.sh[i][1], hexLength - 3);
+		hex.drawEffects(centerX, centerY, ctx, ["red"]);
+	}	
+
+	var triggercount = 0;
+	var triggers = []; //Cards that can be triggered
+
+	for (var i = 0; i < hand.length; i++){
+		if (hand[i] instanceof TriggerCard){
+			if (hand[i].triggerword === "Destroy"){
+				turn = 0.5; //Time to play trigger cards
+				triggercount += 1;
+				triggers.push(i);
+			}
+		}
+	}
+
+	if (triggers.length > 0){
+		var element = document.getElementById("chat");
+		text = "You may trigger a card in your hand! <br>";
+		element.innerHTML += text;
+	}
+
+	//If no trigger cards send back to other player
+	if (triggercount == 0){
+		
+		packet.place(0, 0, data.num);
+		packet.placeImp(0, 0, data.imp);
+	
+		socket.emit("placement", {room: currentRoom, xcoord: 0, ycoord: 0, sh: data.sh, num: data.num, imp: data.imp});
+		ctx.clearRect(0, 0, canvas.width, canvas.height);
+		canvas = document.getElementById("field_overlay");
+		ctx = canvas.getContext("2d");
+		ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+	} else {
+		initialize_second_hand(triggers);
+		$( "#doneBtn" ).bind("click", function(event) {
+			packet.place(0, 0, data.num);
+			packet.placeImp(0, 0, data.imp);
+			console.log(packet);
+	
+			socket.emit("placement", {room: currentRoom, xcoord: 0, ycoord: 0, sh: data.sh, num: data.num, imp: data.imp});
+			ctx.clearRect(0, 0, canvas.width, canvas.height);
+			canvas = document.getElementById("field_overlay");
+			ctx = canvas.getContext("2d");
+			ctx.clearRect(0, 0, canvas.width, canvas.height);
+			document.getElementById('doneBtn').style.visibility = 'hidden';
+
+			removeListeners();
+			//Remove this function from the button
+			$( this ).unbind( event );
+		});
+		
+	}
+	
+
 });
 
 socket.on("shadow", function(data){
@@ -1489,7 +1630,7 @@ socket.on("hand", function(data){
 	for (i = 0; i < data.hand.length; i++){
 		arr.push(cards[data.hand[i].ind]);
 	}
-	var newthing = new Box("#dialog", 1, arr, num, "Choose a card from your opponent's hand to discard", discard);
+	var newthing = new Box("#dialog", 1, arr, num, "Choose a card from your opponent's hand to discard", discard, 1);
 	//actions -= 1;
 	//budget -= 2;
 	sendStatus();
@@ -1509,7 +1650,7 @@ socket.on("targetDiscard", function(data){
 		drawDiscard(obj);
 		sendStatus();
 		showStatus();
-		var text = "<strong> " + obj.name + "</strong> in <strong> Player " + (3 - num) + "</strong>'s hand has been discarded by <strong> Player " + num + "</strong>. <br>";
+		var text = "<strong> " + obj.name + "</strong> in <strong> Player " + (num) + "</strong>'s hand has been discarded by <strong> Player " + (3 - num) + "</strong>. <br>";
 		update(text);
     }
 });

@@ -3,11 +3,10 @@
 /*Dialog box for when a player needs to select
 cards out of a hand, deck, or discard pile
 */
-function Box(canv, n, arr, num, title, func){
+function Box(canv, n, arr, num, title, func, dis){
 	var cardWidth = 100;
 	var cardHeight = 150;
 	var sel = null;
-	
 	$(canv).attr('title', title);
 	var canvas = document.createElement("canvas");
 	var overlay = document.createElement("canvas");
@@ -17,36 +16,32 @@ function Box(canv, n, arr, num, title, func){
 	canvas.style.left = "0px";
 	canvas.style.top = "0px";
 	canvas.style.position = "absolute";
+	canvas.id = "can";
 	
 	overlay.width = canvas.width;
 	overlay.height = canvas.height;
 	overlay.style.left = "0px";
 	overlay.style.top = "0px";
 	overlay.style.position = "absolute";
-
-
-	var offset = window.innerWidth / 2 - 300;
+	
 	//add mouse listeners
-	overlay.addEventListener("mousedown", 
-		function(event){
-			
-			if (sel == null){
-				sel = new MultiSelection(overlay, n);
-			} 
-			sel.select(event, arr.length, offset);
-			$('#button_ok').button('enable');
-			//console.log(sel.selection());
-		}, 
-	false);
+	
 
 	//Create canvas for display
+	//$(canv).empty();
 	$(canv).append(canvas);
 	$(canv).append(overlay);
 	
 	$mydialog = $(canv).dialog({
+		closeOnEscape: false,
+	    open: function(event, ui) {
+	        $(".ui-dialog-titlebar-close", ui.dialog | ui).hide();
+	    },
 	  dialogClass: "no-close",
+	  resizable: false,
+        draggable: false,
 	  modal: true,
-	  width: 600,
+	  width: 500,
 	  height: 300,
 	  show: {
 		effect: "slide",
@@ -56,6 +51,11 @@ function Box(canv, n, arr, num, title, func){
 		effect: "fade",
 		duration: 300
 		},
+		position: {
+         my: "top",
+         at: "bottom",
+         of: $('#staples')
+     },
 	  buttons: [
 	    {
 	      id: "button_ok",
@@ -64,14 +64,34 @@ function Box(canv, n, arr, num, title, func){
 	      	if (sel != null){
 	      		func(sel.selection().sort().reverse(), arr);	      		
 	      	}	
+	      	 //Delete canvasses
+			
 	        $( this ).dialog( "close" );
-	        //Delete canvasses
-			$( this ).empty();
+	       $(this).dialog('destroy').remove();
+	       //Readd div
+	       $("#wrapper").append("<div id='dialog'></div>")
 	      }
 	    }
 	  ]
 	});
-	$('#button_ok').button('disable');
+	if (dis){
+		$('#button_ok').button('disable');
+	}
+	if (arr.length == 0){
+		$('#button_ok').button('enable');
+	}
+
+	var offset = $('#staples').offset().left;
+	overlay.addEventListener("mousedown", 
+		function(event){
+			
+			if (sel == null){
+				sel = new MultiSelection(overlay, n);
+			} 
+			sel.select(event, arr.length, offset);
+			$('#button_ok').button('enable');
+		}, 
+	false);
 	
 	var ctx = canvas.getContext('2d');
 	//draw the cards

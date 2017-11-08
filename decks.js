@@ -9,7 +9,7 @@ var cardWidth = 100;
 var cardHeight = 150;
 
 var centerX = 560;
-var centerY = 330;
+var centerY = 300;
 
 var lastAction = null; 
 
@@ -34,9 +34,11 @@ var arr = ["images/1p.png", "images/2p.png", "images/3p.png", "images/4p.png",
 "images/fundraiser.png",
 "images/hack.png",  
 "images/obstruction.png", 
-"images/restock.png", 
+ 
 "images/trojan.png", 
 "images/offensive.png",
+"images/deflector.png",
+"images/napalm.png",
 
 "images/horse.png",
 
@@ -75,10 +77,37 @@ var imps = [17, 18];
 var aggro, midrange, combo, dup, hacker;
 
 //Cards that are in every draft
-var staples = [0, 1, 2, 3, 4, 5, 6, 19];
+var staples = [0, 1, 2, 3, 4, 5, 6, 18];
 var quantity = [18, 18, 18, 18, 30, 24, 16, 8];
 
 //Card list
+
+function TriggerCard(index, triggerword, arr, t_arr, name, ac, cost, price, discard){
+	
+	Card.call(this, index, arr, name, ac, cost, price);
+	this.t_arr = t_arr;
+	this.triggerword = triggerword;
+	this.discard = discard;
+}
+
+//Inherit prototypes
+TriggerCard.prototype = Object.create(Card.prototype);
+TriggerCard.prototype.constructor = TriggerCard;
+
+TriggerCard.prototype.trigger = function(n){
+	if (this.discard){
+		var card = hand.splice(n, 1)[0];
+		var text ="<strong> Player " + num + "</strong> triggers and discards <strong>" + card.name + "</strong> off of keyword <strong>" + card.triggerword + "</strong>. <br>";
+		update(text);
+		updateDiscard(card);
+	} else {
+		var text ="<strong> Player " + num + "</strong> triggers and reveals <strong>" + hand[n].name + "</strong> off of keyword <strong>" + hand[n].triggerword + "</strong>. <br>";
+		update(text);
+	}
+	for (var i = 0; i < this.t_arr.length; i++) {
+		this.t_arr[i].call(); //Apply the functions
+	}
+}
 
 var cards = [
 	new Card(0, ["playPoly(1)"], "1-Hex", 1, 0, 0),
@@ -90,26 +119,28 @@ var cards = [
 	new Card(6, ["gain(3)"], "3 credits", 0, 0, 5),	
 	
 	new Card(7, ["airdrop()"], "Airdrop", 1, 0, 2),
-	new Card(8, ["destroy(9, 9, 200, 0)"], "Airstrike", 1, 0, 3),
-	new Card(9, ["artillery()"], "Artillery", 1, 4, 4),
-	new Card(10, ["addActions(3)"], "Blitz", 1, 3, 4),
+	new Card(8, ["destroy(9, 9, 200, 0)"], "Airstrike", 1, 3, 3),
+	new Card(9, ["artillery()"], "Artillery", 1, 4, 6),
+	new Card(10, ["addActions(3)"], "Blitz", 1, 1, 3),
 	new Card(11, ["disposal()"], "Disposal", 1, 0, 2),
 	new Card(12, ["tutor()"], "Early Access", 1, 1, 3),	
 	new Card(13, ["force()"], "Forcefield", 1, 2, 3),	
 	new Card(14, ["fundraiser()"], "Fundraiser", 1, 0, 3),
 	new Card(15, ["targetDiscard(1)"], "Hack", 1, 2, 3),	
 	new Card(16, ["obstruct()"], "Obstruction", 1, 2, 3),	
-	new Card(17, ["draw(3, 0)"], "Restock", 1, 1, 3),
-	new Card(18, ["trojan()"], "Trojan", 1, 1, 4),
-	new Card(19, ["offensive()"], "Tactical Offensive", 1, 1, 2),	
-	
-	new Card(20, [""], "Horse", 0, 0, 0)
+	//new Card(17, ["draw(3, 0)"], "Restock", 1, 1, 3),
+	new Card(17, ["trojan()"], "Trojan", 1, 1, 4),
+	new Card(18, ["offensive()"], "Tactical Offensive", 1, 1, 2),
+	new TriggerCard(19, "Destroy", ["draw(2, 0)"], [function(){draw(1, 0); socket.emit("placement", {room: currentRoom, xcoord: 0, ycoord: 0, sh: [], num: -1, imp: -1});}], "Deflector Shield", 1, 1, 0, 1),	
+	new Card(20, ["napalm()"], "Napalm", 1, 2, 4),
+	new Card(21, [""], "Horse", 0, 0, 0)
 ];
 
 // 6 1C's and 4 1P's is the starting deck for all players
-var starter = [cards[4], cards[4], cards[4], cards[4], cards[4], cards[4],
-				cards[0], cards[0], 
-				cards[0], cards[0]];
+var starter = [cards[4], cards[4], cards[4], cards[4], cards[4], 
+				cards[19],
+				cards[0], cards[0], cards[0],
+				 cards[19]];
 
 //Classes for cards and packets
 
@@ -201,6 +232,10 @@ Card.prototype.resolve = function(p){
 		return 1;
 	} 
 }
+
+
+
+
 
 //A "virtual" polyomino card, purely for the GUI
 function PolyCard(shape){

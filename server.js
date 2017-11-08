@@ -26,7 +26,7 @@ var rooms = {};
 var clients = [];
 
 //Cards that are randomized for each draft
-var cardlist = [7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18];
+var cardlist = [7, 8, 9, 10, 11, 12, 13, 15, 16, 17, 20];
 
 
 //Shuffle an array
@@ -105,7 +105,7 @@ io.sockets.on('connection', function(socket) {
 			//create market
 			var market = [];
 			for (i = 0; i < cardlist.length; i++){
-				for (j = 0; j < 8; j++){
+				for (j = 0; j < 4; j++){
 					market.push(cardlist[i]);
 				}
 			}
@@ -162,10 +162,18 @@ io.sockets.on('connection', function(socket) {
 		var room = rooms[data.room];
 		//Send location of placement to p2
 		socket.broadcast.to(room.name).emit("placement", {
-			xcoord: data.xcoord, ycoord: data.ycoord, sh: data.sh, color: data.color
+			xcoord: data.xcoord, ycoord: data.ycoord, sh: data.sh, num: data.num, imp: data.imp
 		});
 	});
 
+	//Communicate placement between clients
+	socket.on("destroy", function(data){
+		var room = rooms[data.room];
+		//Send location of placement to p2
+		socket.broadcast.to(room.name).emit("destroy", {
+			xcoord: data.xcoord, ycoord: data.ycoord, sh: data.sh, num: data.num, imp: data.imp
+		});
+	});
 	//Placement of improvements
 	//Communicate placement between clients
 	socket.on("improvement", function(data){

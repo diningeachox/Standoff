@@ -176,6 +176,8 @@ socket.on("err", function(data){
 });
 
 function positionelements(){
+	document.getElementById('doneBtn').style.visibility = 'hidden'; //Hide donebtn
+	
 	var w = window.innerWidth;
 	var h = window.innerHeight;
 	var field = document.getElementById("field");
