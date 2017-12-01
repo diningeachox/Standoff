@@ -88,13 +88,13 @@ socket.on("upkeep", function(){
 	ctx.clearRect(0, 0, canvas.width, canvas.height);
 	//Count credit improvs
 	for (i = 0; i < wells.length; i++){
-		if (field[wells[i]].num == num){
+		if (field[wells[i]].num == num && field[wells[i]].addOn == 3){
 			budget += 1;
 		}
 	}
 
 	for (i = 0; i < placement_wells.length; i++){
-		if (field[placement_wells[i]].num == num){
+		if (field[placement_wells[i]].num == num && field[placement_wells[i]].addOn == 4){
 			placements += 1;
 		}
 	}

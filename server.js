@@ -26,7 +26,7 @@ var rooms = {};
 var clients = [];
 
 //Cards that are randomized for each draft
-var cardlist = [7, 8, 9, 10, 11, 12, 13, 15, 16, 17, 20];
+var cardlist = [7, 8, 9, 10, 11, 12, 13, 15, 16, 17, 19, 20];
 
 
 //Shuffle an array

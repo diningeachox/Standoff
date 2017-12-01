@@ -118,7 +118,7 @@ var cards = [
 	new Card(5, ["gain(2)"], "2 credits", 0, 0, 2),
 	new Card(6, ["gain(3)"], "3 credits", 0, 0, 5),	
 	
-	new Card(7, ["airdrop()"], "Airdrop", 1, 0, 2),
+	new Card(7, ["airdrop()"], "Airdrop", 1, 1, 2),
 	new Card(8, ["destroy(9, 9, 200, 0)"], "Airstrike", 1, 3, 3),
 	new Card(9, ["artillery()"], "Artillery", 1, 4, 6),
 	new Card(10, ["addActions(3)"], "Blitz", 1, 1, 3),
@@ -127,20 +127,20 @@ var cards = [
 	new Card(13, ["force()"], "Forcefield", 1, 2, 3),	
 	new Card(14, ["fundraiser()"], "Fundraiser", 1, 0, 3),
 	new Card(15, ["targetDiscard(1)"], "Hack", 1, 2, 3),	
-	new Card(16, ["obstruct()"], "Obstruction", 1, 2, 3),	
+	new Card(16, ["obstruct()"], "Obstruction", 1, 3, 3),	
 	//new Card(17, ["draw(3, 0)"], "Restock", 1, 1, 3),
 	new Card(17, ["trojan()"], "Trojan", 1, 1, 4),
-	new Card(18, ["offensive()"], "Tactical Offensive", 1, 1, 2),
-	new TriggerCard(19, "Destroy", ["draw(2, 0)"], [function(){draw(1, 0); socket.emit("placement", {room: currentRoom, xcoord: 0, ycoord: 0, sh: [], num: -1, imp: -1});}], "Deflector Shield", 1, 1, 0, 1),	
+	new Card(18, ["offensive()"], "Tactical Offensive", 1, 2, 2),
+	new TriggerCard(19, "Destroy", ["draw(2, 0)"], [function(){draw(1, 0); socket.emit("placement", {room: currentRoom, xcoord: 0, ycoord: 0, sh: [], num: -1, imp: -1});}], "Deflector Shield", 1, 1, 1, 1),	
 	new Card(20, ["napalm()"], "Napalm", 1, 2, 4),
 	new Card(21, [""], "Horse", 0, 0, 0)
 ];
 
 // 6 1C's and 4 1P's is the starting deck for all players
 var starter = [cards[4], cards[4], cards[4], cards[4], cards[4], 
-				cards[19],
+				cards[4],
 				cards[0], cards[0], cards[0],
-				 cards[19]];
+				 cards[0]];
 
 //Classes for cards and packets
 
