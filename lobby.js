@@ -298,10 +298,19 @@ function positionelements(){
 
     $('#playarea').css({left: 4 * cardWidth + 20});
 
-    $('#staples').css({width: 4 * cardWidth, height: 2 * cardHeight});
-    $('#staples_overlay').css({width: 4 * cardWidth, height: 2 * cardHeight});
-    $('#random').css({width: 4 * cardWidth, height: 2 * cardHeight});
-    $('#random_overlay').css({width: 4 * cardWidth, height: 2 * cardHeight});
+    $('#staples').prop("width", 4 * cardWidth);
+    $('#staples').prop("height", 2 * cardHeight);
+    $('#staples').css({left: 10, top: 10});
+    $('#staples_overlay').prop("width", 4 * cardWidth);
+    $('#staples_overlay').prop("height", 2 * cardHeight);
+    $('#staples_overlay').css({left: 10, top: 10});
+
+    $('#random').prop("width", 4 * cardWidth);
+    $('#random').prop("height", 2 * cardHeight);
+    $('#random').css({left: 10, top: 10 + (2 * cardHeight) + 10});
+    $('#random_overlay').prop("width", 4 * cardWidth);
+    $('#random_overlay').prop("height", 2 * cardHeight);
+    $('#random_overlay').css({left: 10, top: 10 + (2 * cardHeight) + 10});
 
     //Buttons
     $('.button').css({width: w / 15 + 10, height: w / 40});
