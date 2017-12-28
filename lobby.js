@@ -80,8 +80,9 @@ function lobby(){
 
 function enter_room(id){
 	$('#wrapper').load('board.html #wrapper', function(){ 
+
 		console.log("Entering room " + id + " (again)"); 
-		positionelements();
+		positionelements();		
 
 		//Set currentroom to id
 		currentRoom = id;
@@ -145,7 +146,9 @@ socket.on("join", function(id){
 	//Load contents from main.html, tell server that it's ready to start after loading
 	$(document).ready(function() {
 		$('#wrapper').load('board.html #wrapper', function(){ 
-			//Position canvas elements
+
+			document.getElementById('doneBtn').style.visibility = 'hidden'; //Hide donebtn
+			//Position canvas elements	
 			positionelements();
 			//Add keyevent to chat textarea
 			$("#talk").keyup(
@@ -176,7 +179,6 @@ socket.on("err", function(data){
 });
 
 function positionelements(){
-	document.getElementById('doneBtn').style.visibility = 'hidden'; //Hide donebtn
 	
 	var w = window.innerWidth;
 	var h = window.innerHeight;
@@ -247,7 +249,7 @@ function positionelements(){
     chat.style.border = "1px solid black";
 
     var talk = document.getElementById("talk");
-    talk.style.width = (w / 10) + 'px';
+    talk.style.width = (w / 10) - 4 + 'px';
 	talk.style.height = (h / 12) + "px";
 	talk.style.right = "5px";
     talk.style.top =  (7.0 * h / 8) + "px";
@@ -258,38 +260,56 @@ function positionelements(){
     var canvas = document.getElementById("lobbyBtn");
     canvas.style.top = (h - 80) + "px";
 
-    var display = document.getElementById("card_display");
-    display.style.width = (w / 7) + 'px';
-	display.style.height = (w / 5) + 'px';
-	display.style.right = (display.style.width + talk.style.width + 5) + "px";
-    display.style.top =  h/4 + "px";
-    display.style.position = "absolute";
-    display.style.overflow = "auto";
+    $('#card_display').css({width: w / 7, height: w / 5, right: $('#chat').width() + 15, top: h / 4});
 
     $('#hand').prop("width", 5 * cardWidth);
     $('#hand').prop("height", cardHeight);
+    $('#hand').css({left: (w / 2) - (3 * cardWidth), bottom: 10});
+
+    $('#opp_hand').css({left: $('#hand').offset().left + (5.5 * cardWidth), top: 10, width: w / 15, height: w / 15});
 
     $('#hand_overlay').prop("width", 5 * cardWidth);
     $('#hand_overlay').prop("height", cardHeight);
+    $('#hand_overlay').css({left: w / 2 - (3 * cardWidth), bottom: 10});
 
-    $('#deck').prop("width", cardWidth);
-    $('#deck').prop("height", cardHeight);
+    $('#second_hand').prop("width", 5 * cardWidth);
+    $('#second_hand').prop("height", cardHeight);
+    $('#second_hand').css({left: (w / 2) - (3 * cardWidth), bottom: 10});
+
+    $('#second_hand_overlay').prop("width", 5 * cardWidth);
+    $('#second_hand_overlay').prop("height", cardHeight);
+    $('#second_hand_overlay').css({left: w / 2 - (3 * cardWidth), bottom: 10});
+
+    $('#deck_display').prop("width", cardWidth);
+    $('#deck_display').prop("height", cardHeight);
+    $('#deck_display').css({left: $('#hand').offset().left + (7 * cardWidth), bottom: 10});
 
     $('#opp_deck').prop("width", cardWidth);
     $('#opp_deck').prop("height", cardHeight);
+    $('#opp_deck').css({left: $('#hand').offset().left + (7 * cardWidth), top: 10});
 
     $('#discard').prop("width", cardWidth);
     $('#discard').prop("height", cardHeight);
+    $('#discard').css({left: $('#hand').offset().left + (8 * cardWidth) + 5, bottom: 10});
 
     $('#opp_discard').prop("width", cardWidth);
     $('#opp_discard').prop("height", cardHeight);
+    $('#opp_discard').css({left: $('#hand').offset().left + (8 * cardWidth) + 5, top: 10});
 
     $('#playarea').css({left: 4 * cardWidth + 20});
 
+    $('#staples').css({width: 4 * cardWidth, height: 2 * cardHeight});
+    $('#staples_overlay').css({width: 4 * cardWidth, height: 2 * cardHeight});
+    $('#random').css({width: 4 * cardWidth, height: 2 * cardHeight});
+    $('#random_overlay').css({width: 4 * cardWidth, height: 2 * cardHeight});
+
     //Buttons
-    $('#endTurnBtn').css({left: $('#hand').offset().left + (5 * cardWidth) + 10});
-    $('#creditBtn').css({left: $('#hand').offset().left + (5 * cardWidth) + 10});
-    $('#undoBtn').css({left: $('#hand').offset().left + (5 * cardWidth) + 10});
+    $('.button').css({width: w / 15 + 10, height: w / 40});
+    $('#endTurnBtn').css({left: $('#hand').offset().left + (5 * cardWidth) + 10, bottom: 10});
+    $('#creditBtn').css({left: $('#hand').offset().left + (5 * cardWidth) + 10, bottom: 10 + (w / 30)});
+    $('#undoBtn').css({left: $('#hand').offset().left + (5 * cardWidth) + 10, bottom: 10 + (w / 15)});
+
+    $('#doneBtn').css({left: $('#hand').offset().left - (1.5 * cardWidth), bottom: 10});
 }
 
 
