@@ -55,8 +55,8 @@ var placement_wells = [[-3, 6], [3, -6]];
 
 //Follow the mouse
 document.onmousemove = function(e){
-    cursorX = e.pageX;
-    cursorY = e.pageY;
+    cursorX = e.pageX - $(window).scrollLeft();
+    cursorY = e.pageY - $(window).scrollTop();
 }
 
 function enableButtons(){
@@ -844,8 +844,8 @@ function initialize_field(){
 	var coord = canvas.getBoundingClientRect();
 
 	canvas.addEventListener("mousemove", function(event){
-		var cursorX = event.clientX;
-		var cursorY = event.clientY;
+		var cursorX = event.pageX;
+		var cursorY = event.pageY;
 		drawShadow(cursorX - coord.left, cursorY - coord.top);
 	}, false);
 
@@ -1445,7 +1445,7 @@ function drawHand(){
 	var ctx = canvas.getContext("2d");
 	ctx.clearRect(0, 0, canvas.width, canvas.height);
 	for (index = 0; index < hand.length; index++){
-		var posX = Math.min((500 / hand.length) * index, cardWidth * index);		
+		var posX = Math.min((canvas.width / hand.length) * index, cardWidth * index);		
 		hand[index].drawImg(ctx, posX, 0, cardWidth, cardHeight);	    
 	}
 }

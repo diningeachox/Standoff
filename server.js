@@ -133,6 +133,12 @@ io.sockets.on('connection', function(socket) {
 	socket.on("disconnect", function(){
 		console.log(socket.id + " has disconnected");
 		
+		//Send message to the room the socket is in
+		if (socket.room != null){
+			socket.broadcast.to(socket.room.toString()).emit("msg", "The opponent has disconnected!");
+		}
+		
+
 		//Delete all rooms created with socket
 		for (var id in rooms){
 	    	var client = rooms[id].owner;

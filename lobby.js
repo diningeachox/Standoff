@@ -185,29 +185,39 @@ function positionelements(){
 	var overlay = document.getElementById("field_overlay");
 	var overlay2 = document.getElementById("field_overlay_2");
 	var placements = document.getElementById("field_placement")
-	field.width = 1000;
+	field.width = w / 2;
 	field.height = h;
-	field.style.left = (w / 2 - 500) + "px";
+	field.style.left = (w / 4) + "px";
     field.style.top = "0px";
     field.style.position = "absolute";
 
-    overlay.width = 1000;
+    overlay.width = w / 2;
 	overlay.height = h;
-	overlay.style.left = (w / 2 - 500) + "px";
+	overlay.style.left = (w / 4) + "px";
     overlay.style.top = "0px";
     overlay.style.position = "absolute";
 
-    overlay2.width = 1000;
+    overlay2.width = w / 2;
 	overlay2.height = h;
-	overlay2.style.left = (w / 2 - 500) + "px";
+	overlay2.style.left = (w / 4) + "px";
     overlay2.style.top = "0px";
     overlay2.style.position = "absolute";
 
-    placements.width = 1000;
+    placements.width = w / 2;
 	placements.height = h;
-	placements.style.left = (w / 2 - 500) + "px";
+	placements.style.left = (w / 4) + "px";
     placements.style.top = "0px";
     placements.style.position = "absolute";
+
+    //Hexagon size
+    hexLength = w / 70;
+    blockDist = hexLength * Math.sqrt(3);
+    centerX = field.width / 2 + field.width / 16;
+    centerY = field.height / 2 - field.height / 12;
+    cardWidth = w / 16;
+    cardHeight = cardWidth * 1.5;
+
+
 
 //Set animation layers
     var fly = document.getElementById("flying_card");
@@ -219,27 +229,27 @@ function positionelements(){
 
     //Set position of transcript and chat
     var trans = document.getElementById("transcript");
-    trans.style.width = '155px';
+    trans.style.width = (w / 10) + 'px';
 	trans.style.height = h/2 + "px";
-	trans.style.left = (w  - 150 - 25) + "px";
+	trans.style.right = "5px";
     trans.style.top = "0px";
     trans.style.position = "absolute";
     trans.style.overflow = "auto";
     trans.style.border = "1px solid black";
 
     var chat = document.getElementById("chat");
-    chat.style.width = '155px';
+    chat.style.width = (w / 10) + 'px';
 	chat.style.height = (3.0 * h / 8) + "px";
-	chat.style.left = (w  - 150 - 25) + "px";
+	chat.style.right = "5px";
     chat.style.top =  h/2 + "px";
     chat.style.position = "absolute";
     chat.style.overflow = "auto";
     chat.style.border = "1px solid black";
 
     var talk = document.getElementById("talk");
-    talk.style.width = '151px';
+    talk.style.width = (w / 10) + 'px';
 	talk.style.height = (h / 12) + "px";
-	talk.style.left = (w  - 150 - 25) + "px";
+	talk.style.right = "5px";
     talk.style.top =  (7.0 * h / 8) + "px";
     talk.style.position = "absolute";
     talk.style.overflow = "auto";
@@ -247,6 +257,39 @@ function positionelements(){
 
     var canvas = document.getElementById("lobbyBtn");
     canvas.style.top = (h - 80) + "px";
+
+    var display = document.getElementById("card_display");
+    display.style.width = (w / 7) + 'px';
+	display.style.height = (w / 5) + 'px';
+	display.style.right = (display.style.width + talk.style.width + 5) + "px";
+    display.style.top =  h/4 + "px";
+    display.style.position = "absolute";
+    display.style.overflow = "auto";
+
+    $('#hand').prop("width", 5 * cardWidth);
+    $('#hand').prop("height", cardHeight);
+
+    $('#hand_overlay').prop("width", 5 * cardWidth);
+    $('#hand_overlay').prop("height", cardHeight);
+
+    $('#deck').prop("width", cardWidth);
+    $('#deck').prop("height", cardHeight);
+
+    $('#opp_deck').prop("width", cardWidth);
+    $('#opp_deck').prop("height", cardHeight);
+
+    $('#discard').prop("width", cardWidth);
+    $('#discard').prop("height", cardHeight);
+
+    $('#opp_discard').prop("width", cardWidth);
+    $('#opp_discard').prop("height", cardHeight);
+
+    $('#playarea').css({left: 4 * cardWidth + 20});
+
+    //Buttons
+    $('#endTurnBtn').css({left: $('#hand').offset().left + (5 * cardWidth) + 10});
+    $('#creditBtn').css({left: $('#hand').offset().left + (5 * cardWidth) + 10});
+    $('#undoBtn').css({left: $('#hand').offset().left + (5 * cardWidth) + 10});
 }
 
 

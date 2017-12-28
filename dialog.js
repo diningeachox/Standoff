@@ -4,8 +4,6 @@
 cards out of a hand, deck, or discard pile
 */
 function Box(canv, n, arr, num, title, func, dis){
-	var cardWidth = 100;
-	var cardHeight = 150;
 	var sel = null;
 	$(canv).attr('title', title);
 	var canvas = document.createElement("canvas");
@@ -100,8 +98,6 @@ function Box(canv, n, arr, num, title, func, dis){
 		arr[index].drawImg(ctx, posX, 0, cardWidth, cardHeight);
 	}
 
-	
-	
 }
 
 /* Selection class used to select a single card from an array
@@ -111,8 +107,8 @@ index(): returns the index of the card selected
 function Selection(event, overlay){
 	this.overlay = overlay;
 	this.event = event;
-	this.cardWidth = 100;
-	this.cardHeight = 150;
+	this.cardWidth = cardWidth;
+	this.cardHeight = cardHeight;
 	this.selected = -1;
 	this.maxCards = 5; //Width of the hand canvas
 
@@ -127,8 +123,8 @@ Selection.prototype.index = function(){
 	var ctx = this.overlay.getContext("2d");
 
 	//Get relative position of cursor
-	var x = event.pageX - rect.left;
-	var y = event.pageY - rect.top;
+	var x = event.pageX - rect.left - $(window).scrollLeft();
+	var y = event.pageY - rect.top - $(window).scrollTop();
 	var col = Math.floor(x / this.cardWidth);	
 	var row = Math.floor(y / this.cardHeight);
 
@@ -146,12 +142,13 @@ Selection.prototype.draw = function(t, length){
 
 	ctx.clearRect(0, 0, this.overlay.width, this.overlay.height);
 	//Get relative position of cursor
-	var x = event.pageX + (window.pageXOffset || document.body.scrollLeft) - rect.left;
-	var y = event.pageY + document.body.scrollTop - rect.top;
+	var x = event.pageX - $(window).scrollLeft() - rect.left;
+	var y = event.pageY - $(window).scrollTop() - rect.top;
 	var width = Math.min(this.cardWidth, this.maxCards * this.cardWidth / (length / t));
 	var col = Math.floor(x / width);	
 	var row = Math.floor(y / cardHeight);
 
+	console.log(row);
 	var num;
 	if (t == 2){
 	    num = row * 4 + col;
