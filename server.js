@@ -5,11 +5,12 @@ var serv = require("http").Server(app);
 var Room = require('./room.js');
 var uuid = require('uuid');
 
+app.use("/", express.static(__dirname));
 app.get('/', function(req, res){
 	res.sendFile(__dirname + "/index.html");
 	//exec("php index.php", function (error, stdout, stderr) {res.send(stdout);});
 });
-app.use("/", express.static(__dirname));
+
 
 //Listen to port
 console.log("Server started!");
