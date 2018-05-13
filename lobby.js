@@ -261,6 +261,7 @@ function positionelements(){
     canvas.style.top = (h - 80) + "px";
 
     $('#card_display').css({width: w / 7, height: w / 5, right: $('#chat').width() + 15, top: h / 4});
+    $('#card_display').hide();
 
     $('#hand').prop("width", 5 * cardWidth);
     $('#hand').prop("height", cardHeight);
@@ -270,7 +271,7 @@ function positionelements(){
 
     $('#hand_overlay').prop("width", 5 * cardWidth);
     $('#hand_overlay').prop("height", cardHeight);
-    $('#hand_overlay').css({left: w / 2 - (3 * cardWidth), bottom: 10});
+    $('#hand_overlay').css({left: (w / 2) - (3 * cardWidth), bottom: 10});
 
     $('#second_hand').prop("width", 5 * cardWidth);
     $('#second_hand').prop("height", cardHeight);
@@ -278,7 +279,7 @@ function positionelements(){
 
     $('#second_hand_overlay').prop("width", 5 * cardWidth);
     $('#second_hand_overlay').prop("height", cardHeight);
-    $('#second_hand_overlay').css({left: w / 2 - (3 * cardWidth), bottom: 10});
+    $('#second_hand_overlay').css({left: (w / 2) - (3 * cardWidth), bottom: 10});
 
     $('#deck_display').prop("width", cardWidth);
     $('#deck_display').prop("height", cardHeight);
@@ -314,10 +315,13 @@ function positionelements(){
 
     //Buttons
     $('.button').css({width: w / 15 + 10, height: w / 40});
+    $('#undoBtn').css({left: $('#hand').offset().left + (5 * cardWidth) + 150, bottom: 10 + (w / 15) + 50});
+
     $('#endTurnBtn').css({left: $('#hand').offset().left + (5 * cardWidth) + 10, bottom: 10});
     $('#creditBtn').css({left: $('#hand').offset().left + (5 * cardWidth) + 10, bottom: 10 + (w / 30)});
-    $('#undoBtn').css({left: $('#hand').offset().left + (5 * cardWidth) + 10, bottom: 10 + (w / 15)});
-
+    $('#marketBtn').css({left: $('#hand').offset().left + (5 * cardWidth) + 10, bottom: 10 + (w / 15) + 50});
+    
+    $('#mergeBtn').css({left: $('#hand').offset().left + (5 * cardWidth) + 10, bottom: 10 + (w / 15)});
     $('#doneBtn').css({left: $('#hand').offset().left - (1.5 * cardWidth), bottom: 10});
 }
 
@@ -364,7 +368,9 @@ function Game(id){
 
 	//Actions
 	this.actions = 4;
+	this.additions = 0;
 	this.placements = 1;
+	this.hand_size = 5;
 	this.budget = 0;
 
 	//Field actions
@@ -411,7 +417,9 @@ function saveVars(v){
 	
 	//Actions
 	v.actions = actions;
+	v.additions = additions;
 	v.placements = placements;
+	v.hand_size = hand_size;
 	v.budget = budget;
 
 	//Field actions
@@ -458,7 +466,9 @@ function loadVars(v){
 
 	//Actions
 	actions = v.actions;
+	additions = v.additions;
 	placements = v.placements;
+	hand_size = v.hand_size;
 	budget = v.budget;
 
 	//Field actions

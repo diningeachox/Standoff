@@ -62,12 +62,14 @@ window.onload = function(){
 
 
 <canvas id="card_display" 
-   style="position: absolute; z-index: 0; border:1px solid #000000;"></canvas>
+   style="position: absolute; z-index: 99; pointer-events: none;"></canvas>
 
 
- 
+<button id="marketBtn" class="button -dark center" type="button" onclick="adjustMarket()" style="position: absolute; z-index: 9">Adjust Market</button> 
 
 <button id="undoBtn" class="button -dark center" type="button" onclick="undo()" style="position: absolute; z-index: 9">Undo Placement</button>
+
+<button id="mergeBtn" class="button -dark center" type="button" onclick="merge()" style="position: absolute; z-index: 9">Merge Cards</button>
 
  <button id="creditBtn" class="button -dark center" type="button" onclick="creditAction()" style="position: absolute; z-index: 9;">+1 Credit</button>
 
@@ -77,20 +79,20 @@ window.onload = function(){
 
 
  <canvas id="deck_display" width="100" height="150" 
-   style="position: absolute; left: 1100px; top: 580px; z-index: 9;"></canvas> 
+   style="position: absolute; z-index: 9;"></canvas> 
   <canvas id="discard" width="100" height="150" 
-   style="position: absolute; left: 1220px; top: 580px; z-index: 9;"></canvas> 
+   style="position: absolute; z-index: 9;"></canvas> 
 
 <canvas id="opp_deck" width="100" height="150" 
-   style="position: absolute; left: 1100px; top: 10px; z-index: 9;"></canvas> 
+   style="position: absolute; z-index: 9;"></canvas> 
    <canvas id="opp_discard" width="100" height="150" 
-   style="position: absolute; left: 1220px; top: 10px; z-index: 9;"></canvas> 
+   style="position: absolute; z-index: 9;"></canvas> 
 
    <canvas id="opp_hand" width="100" height="100" 
-   style="position: absolute; left: 990px; top: 10px; z-index: 9;"></canvas> 
+   style="position: absolute; z-index: 9;"></canvas> 
 
 <canvas id="playarea" width="100" height="450" 
-   style="position: absolute; left: 450px; top: 10px; z-index: 4;"></canvas>
+   style="position: absolute; z-index: 4;"></canvas>
 
  <canvas id="hand" width="500" height="150" 
    style="position: absolute; z-index: 5; border:1px solid #000000;"></canvas>
@@ -106,7 +108,7 @@ window.onload = function(){
 Dialog boxes
 
 -->
-<div id="dialog">
+<div id="dialog"  style=" z-index: 999;">
 </div>
 
 <div id="discard_display" title="Discard pile"></div>
@@ -138,10 +140,9 @@ Dialog boxes
 </div>
 
 
-<div id="second_hand" style="position: absolute; top: 580px; left: 450px;">
-	<canvas id="second_hand" width="1050" height="200" style=" position: absolute; left: 0px; top: 0px; z-index: 11; pointer-events:none;"></canvas>
-		<canvas id="second_hand_overlay" width="1050" height="200" style=" position: absolute; left: 0px; top: 0px; z-index: 12; pointer-events:none;"></canvas>
-</div>
+<canvas id="second_hand" width="1050" height="200" style=" position: absolute; z-index: 11; pointer-events:none;"></canvas>
+<canvas id="second_hand_overlay" width="1050" height="200" style=" position: absolute; z-index: 12; pointer-events:none;"></canvas>
+
 
 <div id="screen"> 
 	<div id="screentext">

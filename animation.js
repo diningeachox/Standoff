@@ -66,7 +66,7 @@ function drawImp(shape, a, b, imp, timestamp, duration){
 	var ctx = canvas.getContext("2d");
 	ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-	var letters = ['A', 'F', 'C', 'P'];
+	var letters = ['A', 'F', 'T', 'C', 'P']; 
 	var radius = blockLength / 4;
 
 	for (var i = 0; i < shape.length; i++){
@@ -284,17 +284,22 @@ function toDiscard(active, discard, arr, timestamp, duration){
 
             disableButtons();
 
-            if (hand.length <= 5){
+            if (hand.length <= hand_size){
                 //Draw back up to 5
-                draw(5 - hand.length, 0);
-                //Hand turn to next player
+                draw(hand_size - hand.length, 0);
+                //Hand turn to next player if no extra turn
+                
                 turn = 0;
+                disableButtons();
+                socket.emit("upkeep", currentRoom); 
+                 var text ="---------------------- <br>";
+                updateScroll(text);
+                
                 //Empty the credits 
                 budget = 0;     
-                disableButtons();
-                var text ="---------------------- <br>";
-                updateScroll(text);
-                socket.emit("upkeep", currentRoom);         
+                hand_size = 5;
+               
+                        
             }
         } else {
             var canvas = document.getElementById("opp_discard");

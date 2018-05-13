@@ -26,7 +26,7 @@ var rooms = {};
 var clients = [];
 
 //Cards that are randomized for each draft
-var cardlist = [7, 8, 9, 10, 11, 12, 13, 15, 16, 17, 19, 20];
+var cardlist = [7, 8, 12, 13, 14, 15, 16, 17, 18, 20, 21, 22, 23, 24, 25, 26];
 
 
 //Shuffle an array
@@ -226,6 +226,13 @@ io.sockets.on('connection', function(socket) {
 		var room = rooms[data];
 		//Send location of placement to p2
 		socket.broadcast.to(room.name).emit("upkeep");
+	});
+
+	//Same as upkeep but sent to the same client so as to begin their extra turn
+	socket.on("extraTurn", function(data){
+		var room = rooms[data];
+		//Send location of placement to p2
+		socket.emit("upkeep");
 	});
 
 	//Add a trojan horse card

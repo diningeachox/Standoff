@@ -1,4 +1,100 @@
+/*Dialog box for merging cards*/
+function Merger(canv, arr, func){
+	var sel = null;
+	$(canv).attr('title', "Select which cards to merge:");
+	$mydialog = $(canv).dialog({
+		closeOnEscape: false,
+	    open: function(event, ui) {
+	        $(".ui-dialog-titlebar-close", ui.dialog | ui).hide();
+	    },
+	  dialogClass: "no-close",
+	  resizable: false,
+        draggable: false,
+	  modal: true,
+	  width: 5.5 * cardWidth,
+	  height: (arr.length + 1) * cardHeight,
+	  show: {
+		effect: "slide",
+		duration: 300
+		},
+	  hide: {
+		effect: "fade",
+		duration: 300
+		},
+		position: {
+         my: "left",
+         at: "left",
+         of: $('#field')
+     },
+        close: function() {
+        	//Delete table
+        	var table = document.getElementById("pairings");
+        	if (table) table.parentNode.removeChild(table);
+        	$(this).dialog('destroy').remove();
+	       //Readd div
+	       $("#wrapper").append("<div id='dialog'></div>");
+        }
+	  
+	});
 
+	//Append a dynamic table with all possible mergers
+    var table = document.createElement('table');
+    table.setAttribute('id', 'pairings');
+    for (var i = 0; i < arr.length; i++){
+    	 var tr = document.createElement('tr');
+    	 for (var j = 0; j < arr[i].length - 1; j++){
+    	 	//var x=firstRow.insertCell(-1);
+    	 	var img = hand[arr[i][j]].img;
+    	 	img.width = cardWidth;
+    	 	img.height = cardHeight;
+    	 	var td = document.createElement('td');
+    	 	$(td).width(cardWidth);
+    	 	$(td).height(cardHeight);
+    	 	td.appendChild(img);
+    	 	tr.appendChild(td);
+    	 	if (j == 0){
+    	 		$(tr).append("<td>+</td>");
+    	 	} else if (j == 1){
+				$(tr).append("<td>=</td>");
+    	 	}      	 	
+    	 	
+    	 }
+    	 //Add the merged card
+    	 var img =cards[arr[i][2]].img;
+	 	img.width = cardWidth;
+	 	img.height = cardHeight;
+	 	var td = document.createElement('td');
+	 	$(td).width(cardWidth);
+	 	$(td).height(cardHeight);
+	 	td.appendChild(img);
+	 	tr.appendChild(td);
+    	 //Add a button at the end of the row
+    	 td = document.createElement('td');
+    	 var button = document.createElement("button");
+    	 button.innerHTML = "MERGE";
+    	 button.setAttribute('id', i);
+    	 button.className = "button -dark center";
+    	 button.addEventListener ("click", function(){
+    	 	func(button.getAttribute('id'));
+    	 	$( canv ).dialog( "close" );
+   			$(canv).dialog('destroy').remove();
+	       //Readd div
+	       $("#wrapper").append("<div id='dialog'></div>")
+    	 });
+    	 td.appendChild(button);
+    	 tr.appendChild(td);
+    	 //$(tr).append("<td><button class=\"button -dark center\" type=\"button\" onclick=\"\">OK</button> </td>");
+        table.appendChild(tr);
+
+    }
+            
+     $(canv).append(table);
+
+	
+
+	var offset = $('#field').offset().left;
+
+}
 
 /*Dialog box for when a player needs to select
 cards out of a hand, deck, or discard pile
@@ -50,9 +146,9 @@ function Box(canv, n, arr, num, title, func, dis){
 		duration: 300
 		},
 		position: {
-         my: "top",
-         at: "bottom",
-         of: $('#staples')
+         my: "left",
+         at: "left",
+         of: $('#field')
      },
 	  buttons: [
 	    {
@@ -79,7 +175,7 @@ function Box(canv, n, arr, num, title, func, dis){
 		$('#button_ok').button('enable');
 	}
 
-	var offset = $('#staples').offset().left;
+	var offset = $('#field').offset().left;
 	overlay.addEventListener("mousedown", 
 		function(event){
 			
@@ -148,7 +244,6 @@ Selection.prototype.draw = function(t, length){
 	var col = Math.floor(x / width);	
 	var row = Math.floor(y / cardHeight);
 
-	console.log(row);
 	var num;
 	if (t == 2){
 	    num = row * 4 + col;
@@ -202,8 +297,8 @@ from dialog boxes
 function MultiSelection(overlay, n){
 	this.overlay = overlay;
 	this.event = event;
-	this.cardWidth = 100;
-	this.cardHeight = 150;
+	this.cardWidth = cardWidth;
+	this.cardHeight = cardHeight;
 	this.selected = [];
 	this.n = n; //Number of cards able to be selected
 }
@@ -235,6 +330,8 @@ MultiSelection.prototype.select = function(event, length, offsetLeft){
 	//Get relative position of cursor
 	var x = event.pageX - offsetLeft + $("#dialog").scrollLeft();
 	var col = Math.floor(x / this.cardWidth);
+	console.log(event.pageX);
+	console.log(offsetLeft);
 	
 	if (col < length){
 		//If number of cards selected is less than maximum, select the card
@@ -243,8 +340,7 @@ MultiSelection.prototype.select = function(event, length, offsetLeft){
 			var ind = this.selected.indexOf(col);
 			if (ind != -1){
 				//Delete the card from selection
-				this.selected.splice(ind, 1);
-				
+				this.selected.splice(ind, 1);				
 			} else {
 				//Delete previous selection if this.n == 1
 				if (this.n == 1){
@@ -253,13 +349,9 @@ MultiSelection.prototype.select = function(event, length, offsetLeft){
 				//Add card to selection
 				if (this.selected.length < this.n){
 					this.selected.push(col);
-				}
-				
+				}				
 			}
-		} 
-		
+		} 		
 	}	
-
 	this.draw();
 } 
-

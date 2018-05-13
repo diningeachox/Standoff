@@ -15,7 +15,7 @@ var lastAction = null;
 
 //Animation
 var starttime;
-var colors = ["#C0C0C0", "yellow", "blue", "black", "#FF69B4"];
+var colors = ["#DDA0DD", "yellow", "blue", "black", "#FF69B4"];
 
 //Image array
 var images = [];
@@ -34,16 +34,59 @@ var arr = ["images/1p.png", "images/2p.png", "images/3p.png", "images/4p.png",
 "images/fundraiser.png",
 "images/hack.png",  
 "images/obstruction.png", 
- 
+"images/restock.png",
 "images/trojan.png", 
 "images/offensive.png",
 "images/deflector.png",
 "images/napalm.png",
+"images/telekinesis.png",
+"images/temporal_cylinder.png",
+"images/power_grid.png",
+"images/armor.png",
+"images/shell_factory.png",
+"images/time_dilation.png",
+"images/5c.png",
 
 "images/horse.png",
 
 "images/hand.png"
 ];
+
+function resize_image( src, dst, type, quality ) {
+     var tmp = new Image(),
+         canvas, context, cW, cH;
+
+     type = type || 'image/jpeg';
+     quality = quality || 0.92;
+
+     cW = src.naturalWidth;
+     cH = src.naturalHeight;
+
+     tmp.src = src.src;
+     tmp.onload = function() {
+
+        canvas = document.getElementById("card_display");
+
+        cW /= 2;
+        cH /= 2;
+
+        if ( cW < src.width ) cW = src.width;
+        if ( cH < src.height ) cH = src.height;
+
+        canvas.width = cW;
+        canvas.height = cH;
+        context = canvas.getContext( '2d' );
+        context.drawImage( tmp, 0, 0, cW, cH );
+
+        dst.src = canvas.toDataURL( type, quality );
+
+        if ( cW <= src.width || cH <= src.height )
+           return;
+
+        tmp.src = dst.src;
+     }
+
+  }
 
 //Preload Images
 function ImageLoader(sources, callback) 
@@ -74,11 +117,10 @@ var loader = ImageLoader(arr, function() {
 });
 //Action cards which put improvements on tiles
 var imps = [17, 18];
-var aggro, midrange, combo, dup, hacker;
 
 //Cards that are in every draft
-var staples = [0, 1, 2, 3, 4, 5, 6, 18];
-var quantity = [18, 18, 18, 18, 30, 24, 16, 8];
+var staples = [0, 1, 2, 11, 4, 5, 6, 19];
+var quantity = [8, 8, 8, 8, 8, 8, 8, 8];
 
 //Card list
 
@@ -118,30 +160,44 @@ var cards = [
 	new Card(5, ["gain(2)"], "2 credits", 0, 0, 2),
 	new Card(6, ["gain(3)"], "3 credits", 0, 0, 5),	
 	
-	new Card(7, ["airdrop()"], "Airdrop", 1, 1, 2),
-	new Card(8, ["destroy(9, 9, 200, 0)"], "Airstrike", 1, 3, 3),
-	new Card(9, ["artillery()"], "Artillery", 1, 4, 6),
+	new Card(7, ["airdrop()"], "Airdrop", 1, 1, 3),
+	new Card(8, ["destroy(9, 9, 200, 0)"], "Shelling", 1, 3, 3),
+	new Card(9, ["artillery()"], "Artillery", 1, 3, 0),
 	new Card(10, ["addActions(3)"], "Blitz", 1, 1, 3),
 	new Card(11, ["disposal()"], "Disposal", 1, 0, 2),
 	new Card(12, ["tutor()"], "Early Access", 1, 1, 3),	
-	new Card(13, ["force()"], "Forcefield", 1, 2, 3),	
+	new Card(13, ["force()"], "Forcefield", 1, 4, 4),	
 	new Card(14, ["fundraiser()"], "Fundraiser", 1, 0, 3),
 	new Card(15, ["targetDiscard(1)"], "Hack", 1, 2, 3),	
 	new Card(16, ["obstruct()"], "Obstruction", 1, 3, 3),	
-	//new Card(17, ["draw(3, 0)"], "Restock", 1, 1, 3),
-	new Card(17, ["trojan()"], "Trojan", 1, 1, 4),
-	new Card(18, ["offensive()"], "Tactical Offensive", 1, 2, 2),
-	new TriggerCard(19, "Destroy", ["draw(2, 0)"], [function(){draw(1, 0); socket.emit("placement", {room: currentRoom, xcoord: 0, ycoord: 0, sh: [], num: -1, imp: -1});}], "Deflector Shield", 1, 1, 1, 1),	
-	new Card(20, ["napalm()"], "Napalm", 1, 2, 4),
-	new Card(21, [""], "Horse", 0, 0, 0)
+	new Card(17, ["draw(3, 0)"], "Restock", 1, 0, 3),
+	new Card(18, ["trojan()"], "Trojan", 1, 1, 4),
+	new Card(19, ["offensive()"], "Tactical Offensive", 1, 2, 2),
+	new TriggerCard(20, "Destroy", ["draw(2, 0)"], [function(){draw(1, 0); socket.emit("placement", {room: currentRoom, xcoord: 0, ycoord: 0, sh: [], num: -1, imp: -1});}], "Deflector Shield", 1, 1, 1, 1),	
+	new Card(21, ["napalm()"], "Napalm", 1, 2, 4),
+	new Card(22, ["telekinesis()"], "Telekinesis", 1, 2, 3),
+	new Card(23, [], "Temporal Cylinder", 1, 0, 5),
+	new Card(24, [], "Power Grid", 1, 0, 3),
+	new Card(25, [], "Armor", 1, 0, 4),
+	new Card(26, [], "Shell Factory", 1, 0, 4),
+	new Card(27, ["extraActions()"], "Time Dilation", 1, 2, 0),
+	new Card(28, ["gain(5)"], "5 credits", 0, 0, 0),
+	new Card(29, [], "Horse", 0, 0, 0)
 ];
 
 // 6 1C's and 4 1P's is the starting deck for all players
+
 var starter = [cards[4], cards[4], cards[4], cards[4], cards[4], 
-				cards[4],
+				cards[0],
 				cards[0], cards[0], cards[0],
 				 cards[0]];
-
+				
+/*
+var starter = [cards[24], cards[24], cards[24], cards[14], cards[14], 
+				cards[23],
+				cards[23], cards[17], cards[17],
+				 cards[17]];
+				 */
 //Classes for cards and packets
 
 //Non polyomino card
@@ -161,15 +217,15 @@ Card.prototype.getIndex = function(){
 
 Card.prototype.drawImg = function(ctx, x, y, w, h){
 	var image = this.img;
+	var canvas = document.getElementById("card_display");
 	if (image.complete){
 		ctx.drawImage(image, x, y, w, h);
 	} else {
-		image.onLoad = function () {			
-			//Turn off anti-aliasing
-		    ctx.webkitImageSmoothingEnabled = false;
-			ctx.mozImageSmoothingEnabled = false;
-			ctx.imageSmoothingEnabled = false;
-			ctx.drawImage(image, x, y, w, h);
+		image.onLoad = function () {		
+
+  		// The images sent as parameters can be in the DOM or be image objects
+  			resize_image( image, image );
+			//ctx.drawImage(image, x, y, w, h);
 		}
 	}
 	
