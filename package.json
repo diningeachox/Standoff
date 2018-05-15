@@ -12,7 +12,8 @@
   "dependencies": {
     "body-parser": "^1.15.2",
     "express": "latest",
-    "socket.io": "latest"
+    "socket.io": "latest",
+    "uuid": "latest"
   },
   "author": "Jack Ding"
 }
