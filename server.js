@@ -3,7 +3,7 @@ var express = require("express");
 var app = express();
 var serv = require("http").Server(app);
 var Room = require('./room.js');
-var uuid = require('uuid');
+var uuid = require('uuid/v4');
 
 app.use("/", express.static(__dirname));
 app.get('/', function(req, res){
@@ -58,7 +58,7 @@ io.sockets.on('connection', function(socket) {
 
     // once a client has connected, we expect to get a ping from them saying what room they want to join
     socket.on('create', function(name) {
-    	var id = uuid.v4();
+    	var id = uuid();
     	var room = new Room(name, id, socket.id); //create new room object
         socket.join(name); //Join the room
 

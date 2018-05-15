@@ -4,8 +4,7 @@
   "description": "Standoff the card game",
   "main": "server.js",
   "engines": {
-    "node": "4.4.6",
-    "npm": "2.15.5"
+    "node": "4.4.6"
   },
   "scripts": {
     "start": "node server.js"
