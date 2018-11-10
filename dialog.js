@@ -230,7 +230,7 @@ Selection.prototype.index = function(){
 
 Selection.prototype.draw = function(t, length){
 	//Set max cards in a row
-	if (t == 2){
+	if (t >= 2){
 		this.maxCards = 4;
 	} 
 	var rect = this.overlay.getBoundingClientRect();
@@ -245,7 +245,7 @@ Selection.prototype.draw = function(t, length){
 	var row = Math.floor(y / cardHeight);
 
 	var num;
-	if (t == 2){
+	if (t >= 2){
 	    num = row * 4 + col;
 	} else {
 		num = col;

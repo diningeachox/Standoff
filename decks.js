@@ -120,8 +120,9 @@ var imps = [17, 18];
 
 //Cards that are in every draft
 var staples = [0, 1, 2, 11, 4, 5, 6, 19];
-var quantity = [8, 8, 8, 8, 8, 8, 8, 8];
-
+var quantity = [8, 8, 8, 8, 8, 8, 8, 8,
+4, 4, 4, 4, 4, 4, 4, 4, 
+2, 2, 2, 2, 2, 2, 2, 2];
 //Card list
 
 function TriggerCard(index, triggerword, arr, t_arr, name, ac, cost, price, discard){

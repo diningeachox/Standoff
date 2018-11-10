@@ -7,6 +7,7 @@ function Hex(a, b, size) {
   this.blockDist = this.size * Math.sqrt(3);
   this.addOn = 0;
   this.num = 0; //Neutral or belonging to one of the players
+  this.terrain = 0; //Improvement wells (can't be destroyed)
   this.effects = [];
   //+a means angle of 0, +b means angle of -pi/3;
 }

@@ -97,18 +97,18 @@ socket.on("upkeep", function(){
 	ctx.clearRect(0, 0, canvas.width, canvas.height);
 	//Count credit improvs
 	for (i = 0; i < wells.length; i++){
-		if (field[wells[i]].num == num && field[wells[i]].addOn == 4){
+		if (field[wells[i]].num == num && field[wells[i]].terrain == 1){
 			budget += 1;
 		}
 	}
 
 	for (i = 0; i < placement_wells.length; i++){
-		if (field[placement_wells[i]].num == num && field[placement_wells[i]].addOn == 5){
+		if (field[placement_wells[i]].num == num && field[placement_wells[i]].addOn == 2){
 			placements += 1;
 		}
 	}
 	for (i = 0; i < hand_wells.length; i++){
-		if (field[hand_wells[i]].num == num && field[hand_wells[i]].addOn == 6){
+		if (field[hand_wells[i]].num == num && field[hand_wells[i]].addOn == 3){
 			hand_size += 1;
 		}
 	}
@@ -357,60 +357,24 @@ function initialize_market(){
 		function(event){
 			if (turn == 1){
 				//Do selection				
-				var number = sel.draw(2, Math.min(8, market.length));
+				var number = sel.draw(4, market.length);
 				if (number != -1 && number < market.length){
-					//If player has enough resources
 					var card = cards[market[number]];
 					var cost = card.price;
-					if (budget >= cost && actions > 0){
-						if (card.effect.length == 0){ //Component card
-							//Open dialog box giving player a chance to trash 
-							$("#dialog").html("Do you want to trash this card?");
-
-							  // Define the Dialog and its properties.
-							  $("#dialog").dialog({
-							    resizable: false,
-							    modal: true,
-							    title: "Trash this card instead?",
-							    height: 250,
-							    width: 400,
-							    buttons: {
-							      "Yes": function() {							        
-							        market.splice(number, 1); //Trash the card
-							        var text ="<strong> Player " + num + "</strong> trashes <strong>" + card.name + "<strong>. <br>";
-									updateScroll(text);
-									drawMarket();
-									socket.emit("market", {room: currentRoom, market: market});
-									$(this).dialog('close');
-							      },
-							      "No": function() {							       
-							        updateDiscard(cards[(market.splice(number, 1)[0])]);
-									drawDiscard(discard[discard.length - 1]);
-									var text ="<strong> Player " + num + "</strong> buys <strong>" + card.name + "<strong>. <br>";
-									updateScroll(text);
-									drawMarket();
-									socket.emit("market", {room: currentRoom, market: market});
-									 $(this).dialog('close');
-							      }
-							    }
-							  });	
-						} else {
-							updateDiscard(cards[(market.splice(number, 1)[0])]);
-							drawDiscard(discard[discard.length - 1]);
-							var text ="<strong> Player " + num + "</strong> buys <strong>" + card.name + "<strong>. <br>";
-							updateScroll(text);
-						}
-						
-						
+					if (budget >= cost + Math.floor(number / 4) && actions > 0){
+						updateDiscard(cards[market[number]]);	
+						quantity[number + 8] -= 1; //Market cards start from index 8
 						drawMarket();
 						socket.emit("market", {room: currentRoom, market: market});
-						
-						actions -= 1;
+						socket.emit("quantity", {room: currentRoom, number: number + 8});
+						drawDiscard(discard[discard.length - 1]);
 						budget -= cost;
+						actions -= 1;
 						showStatus();
 						sendStatus();
-						
-					} else if (budget < cost) {
+						var text ="<strong> Player " + num + "</strong> buys <strong>" + card.name + "<strong>. <br>";
+						updateScroll(text);
+					} else if (budget < cost + Math.floor(number / 4)) { //Each row is more expensive
 						alert("You do not have enough credits to buy this card!");
 					} else if (actions == 0){
 						alert("You do not have enough actions to buy this card!");
@@ -513,24 +477,25 @@ function initialize_vars(){
 	}
 
 	var cleartiles = [[3, 4],  [-7, 3], [-3, -4],  [7, -3],
-						[4, 3],  [-7, 4], [-4, -3],  [7, -4]];
+						[4, 3],  [-7, 4], [-4, -3],  [7, -4],
+						[4, -3], [-4, 3], [1, 3], [-1, -3]];
 	for (i = 0; i < cleartiles.length; i++){
 		field[cleartiles[i]].num = 0;
 	}
 
 	//Add credit wells
 	for (i = 0; i < wells.length; i++){
-		field[wells[i]].addOn = 4;
+		field[wells[i]].terrain = 1;
 	}
 
 	//Add placement wells
 	for (i = 0; i < placement_wells.length; i++){
-		field[placement_wells[i]].addOn = 5;
+		field[placement_wells[i]].terrain = 2;
 	}
 
 	//Add hand wells
 	for (i = 0; i < placement_wells.length; i++){
-		field[hand_wells[i]].addOn = 6;
+		field[hand_wells[i]].terrain = 3;
 	}
 
 	var forcefields = [];
@@ -1128,12 +1093,12 @@ function fieldActions(event){
 					tempShape.push([a, b]);
 					count -= 1;						
 					
-				} else if (tempPacket.color == "orange" && field.hasOwnProperty([a, b]) && field[[a, b]].addOn == 0
+				} else if (tempPacket.color == "orange" && field.hasOwnProperty([a, b]) && field[[a, b]].addOn == 0 && field[[a, b]].terrain == 0
 					&& tempPacket.poly.collideWith(a, b, num, field)){
 					//Each tile you control can only have one improvement of each type	
 					tempShape.push([a, b]);
 					count -= 1;	
-				} else if (tempPacket.color == "pink" && field.hasOwnProperty([a, b]) && field[[a, b]].addOn == 0
+				} else if (tempPacket.color == "pink" && field.hasOwnProperty([a, b]) && field[[a, b]].addOn == 0 && field[[a, b]].terrain == 0
 					&& !tempPacket.poly.collideWith(a, b, 3 - num, field)){
 					//Each tile you control can only have one improvement of each type	
 					tempShape.push([a, b]);
@@ -1259,7 +1224,8 @@ function fieldActions(event){
 				document.getElementById("undoBtn").disabled = true;
 			}
 			//Pink color means placement is contrained by range and collisions
-			else if (tempPacket.color == "pink" && dist(r, co, a, b) <= range && !tempPacket.poly.collide(a, b, -10, field) && field[[a, b]].addOn == 0){
+			else if (tempPacket.color == "pink" && dist(r, co, a, b) <= range && !tempPacket.poly.collide(a, b, -10, field) 
+				&& field[[a, b]].addOn == 0 && field[[a, b]].terrain == 0){
 				//First clear the previous hex
 				var poly = new Poly([[r, co]]);
 				poly.place(0, 0, 0);
@@ -1678,10 +1644,19 @@ function drawField(){
 
 			//Addons
 			var tile = h.addOn;
+			var tile2 = h.terrain;
     		x = h.getX(centerX, centerY);
     		y = h.getY(centerX, centerY);
-    		if (tile != 0){
-    			var letters = ['A', 'F', 'T', 'C', 'P', 'H']; //Different letters for different improvements
+    		if (tile != 0 || tile2 != 0){
+    			/* A = artillery
+    			F = forcefield
+    			T = telekinesis
+    			C = credit well
+    			P = placement well
+    			H = hand well (increases max hand size)
+    			*/
+    			var letters = ['A', 'F', 'T'];
+    			var well_letters = ['C', 'P', 'H']; //Different letters for different improvements
 				//Draw a circle for the artillery
 		        var radius = blockLength / 4;
 		        ctx.beginPath();
@@ -1697,7 +1672,11 @@ function drawField(){
 		        ctx.fillStyle = "black";
 		        
 		        ctx.font = 'bold 18px arial';
-  				ctx.fillText(letters[tile - 1], x - 6, y + 7);
+		        if (tile2 > 0){
+		        	ctx.fillText(well_letters[tile2 - 1], x - 6, y + 7);
+		        } else{
+  					ctx.fillText(letters[tile - 1], x - 6, y + 7);
+		        }
   				if (tile == 2 && (h.num == 1 || h.num == 2)){
   					//Draw forcefield
   					addForcefield(h.a, h.b, 1, h.num);
@@ -2025,11 +2004,11 @@ function drawPlay(arr){
 	}
 }
 
-function drawMarket(){
-	
-    
+function drawMarket(){    
 	var canvas = document.getElementById("staples");
 	var ctx = canvas.getContext("2d");
+
+	
 	//Draw staples
 	for (i = 0; i < staples.length; i++){
 		var row = Math.floor(i / 4);
@@ -2047,19 +2026,59 @@ function drawMarket(){
 	        ctx.fillStyle = 'black';
 	        ctx.font = 'bold 20px arial';
 			ctx.fillText(quantity[i], col * cardWidth + 8, row * cardHeight + 40);
+		} else {
+			//Pile is empty
+			ctx.fillStyle="#D3D3D3";
+			ctx.fillRect(ctx, col * cardWidth, row * cardHeight, cardWidth, cardHeight);
+			//Pile is empty text
+			ctx.font = 'bold 20px arial';
+			ctx.fillText("This pile is empty!", col * cardWidth + 5, row * cardHeight + 10);
+		}
+	}
+
+	canvas = document.getElementById("random");
+	ctx = canvas.getContext("2d");
+	ctx.clearRect(0, 0, canvas.width, canvas.height);
+	//Draw others
+	for (i = 0; i < market.length; i++){
+		var row = Math.floor(i / 4);
+		var col = i % 4;
+		if (quantity[i + 8] > 0){
+			cards[market[i]].drawImg(ctx, col * cardWidth, row * cardHeight, cardWidth, cardHeight);
+			//Draw number of copies
+			ctx.beginPath();
+			ctx.arc(col * cardWidth + 20, row * cardHeight + 30, 15, 0, 2 * Math.PI, false);
+	        ctx.fillStyle = 'white';
+	        ctx.fill();
+	        ctx.lineWidth = 2;
+	        ctx.strokeStyle = '#003300';
+	        ctx.stroke();
+	        ctx.fillStyle = 'black';
+	        ctx.font = 'bold 20px arial';
+			ctx.fillText(quantity[i + 8], col * cardWidth + 8, row * cardHeight + 40);
+			if (row > 0){
+				//Draw the amount of extra cost that must be paid to buy cards in this row
+				ctx.beginPath();
+				ctx.arc(col * cardWidth + (cardWidth - 20), row * cardHeight + (cardHeight - 30), 15, 0, 2 * Math.PI, false);
+		        ctx.fillStyle = '#FFD700'; //gold color
+		        ctx.fill();
+		        ctx.lineWidth = 2;
+		        ctx.strokeStyle = '#003300';
+		        ctx.stroke();
+		        ctx.fillStyle = 'black';
+		        ctx.font = 'bold 20px arial';
+				ctx.fillText('+' + row, col * cardWidth + (cardWidth - 32), row * cardHeight + (cardHeight - 20));
+			}
+		} else {
+			//Pile is empty
+			ctx.fillStyle="#D3D3D3";
+			ctx.fillRect(ctx, col * cardWidth, row * cardHeight, cardWidth, cardHeight);
+			//Pile is empty text
+			ctx.font = 'bold 20px arial';
+			ctx.fillText("This pile is empty!", col * cardWidth + 5, row * cardHeight + 10);
 		}
 	}
 	
-	//Draw other cards from a shuffled market pile
-	canvas = document.getElementById("random");
-	ctx = canvas.getContext("2d");
-	for (i = 0; i < 8; i++){
-		var row = Math.floor(i / 4);
-		var col = i % 4;
-		if (i < market.length){
-			cards[market[i]].drawImg(ctx, col * cardWidth, row * cardHeight, cardWidth, cardHeight);
-		}
-		
-	}
+	
 }
 //]]>

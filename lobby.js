@@ -307,10 +307,10 @@ function positionelements(){
     $('#staples_overlay').css({left: 10, top: 10});
 
     $('#random').prop("width", 4 * cardWidth);
-    $('#random').prop("height", 2 * cardHeight);
+    $('#random').prop("height", 4 * cardHeight);
     $('#random').css({left: 10, top: 10 + (2 * cardHeight) + 10});
     $('#random_overlay').prop("width", 4 * cardWidth);
-    $('#random_overlay').prop("height", 2 * cardHeight);
+    $('#random_overlay').prop("height", 4 * cardHeight);
     $('#random_overlay').css({left: 10, top: 10 + (2 * cardHeight) + 10});
 
     //Buttons

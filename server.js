@@ -106,12 +106,12 @@ io.sockets.on('connection', function(socket) {
 			//create market
 			var market = [];
 			for (i = 0; i < cardlist.length; i++){
-				for (j = 0; j < 4; j++){
+				//for (j = 0; j < 4; j++){
 					market.push(cardlist[i]);
-				}
+				//}
 			}
 			market = shuffle(market);
-			io.sockets.in(room.name).emit("market", market); //Tell clients what the market is
+			io.sockets.in(room.name).emit("market", market); 
 
 			console.log("The game begins in room " + id + "!");
 			io.sockets.in(room.name).emit("msg", "Game started!<br>");
